@@ -1,0 +1,755 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mapping Playground</title>
+<style>
+  :root{
+    --bg:#F6F3F5;
+    --panel:#FFFFFF;
+    --panel-2:#FBF9FA;
+    --ink:#221F26;
+    --muted:#6B6572;
+    --accent:#6E5FD9;
+    --accent-ink:#FFFFFF;
+    --accent-2:#D14E82;
+    --line:#E3DEE6;
+    --line-strong:#CFC8D6;
+    --chip:#EFEAF6;
+    --ok:#3D8B62;
+    --warn:#B8722A;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#131118; --panel:#1C1923; --panel-2:#211D29; --ink:#F1EEF5; --muted:#A79EB2;
+      --accent:#B0A4FF; --accent-ink:#1B1730; --accent-2:#FF8FBC; --line:#332E3D; --line-strong:#433C4F; --chip:#2A2534; --ok:#6FCB9A; --warn:#E6A85C;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#131118; --panel:#1C1923; --panel-2:#211D29; --ink:#F1EEF5; --muted:#A79EB2;
+    --accent:#B0A4FF; --accent-ink:#1B1730; --accent-2:#FF8FBC; --line:#332E3D; --line-strong:#433C4F; --chip:#2A2534; --ok:#6FCB9A; --warn:#E6A85C;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", -apple-system, sans-serif;
+    padding:18px;
+  }
+  .mono{font-family:"IBM Plex Mono", monospace;}
+  .app{max-width:1400px; margin:0 auto;}
+
+  header{display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:14px; flex-wrap:wrap;}
+  .eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent-2); font-weight:600; margin:0 0 4px;}
+  h1{font-family:"Fraunces", Georgia, serif; font-size:clamp(22px,3vw,30px); font-weight:600; margin:0;}
+  .tagline{color:var(--muted); font-size:13px; max-width:56ch; margin:4px 0 0;}
+  .badge{
+    font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+    background:var(--chip); color:var(--accent); border:1px solid var(--line-strong); border-radius:999px;
+    padding:5px 12px; white-space:nowrap;
+  }
+  .badge.live{color:var(--warn); border-color:var(--warn);}
+
+  .layout{display:grid; grid-template-columns:1.3fr 1fr; gap:16px;}
+  @media (max-width:980px){.layout{grid-template-columns:1fr;}}
+
+  .stage{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:14px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  canvas{width:100%; aspect-ratio:16/10; border-radius:10px; display:block; background:#000;}
+
+  .sourcerow{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .sourcerow label{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+  .sourcerow select{width:auto; min-width:220px;}
+
+  .transport{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  button{
+    font-family:"IBM Plex Mono",monospace; font-size:12.5px; letter-spacing:.02em;
+    background:var(--chip); color:var(--accent); border:1px solid var(--line-strong); border-radius:8px;
+    padding:9px 16px; cursor:pointer;
+  }
+  button:hover{border-color:var(--accent);}
+  button.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  button:disabled{opacity:.45; cursor:default;}
+
+  .sliderrow{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); flex:1; min-width:150px;}
+  .sliderrow input[type=range]{flex:1; accent-color:var(--accent);}
+  .sliderrow .val{font-family:"IBM Plex Mono",monospace; color:var(--ink); width:32px; text-align:right;}
+  .sliderrow.simOnly[data-hidden="true"]{display:none;}
+
+  .log{
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--muted);
+    background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
+    padding:8px 10px; height:96px; overflow-y:auto; display:flex; flex-direction:column-reverse; gap:2px;
+  }
+  .log .row{display:flex; gap:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .log .row.burst{color:var(--accent-2);}
+  .log .row.error{color:var(--warn);}
+  .log .t{color:var(--muted); opacity:.7; flex-shrink:0;}
+
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px;
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .panel h2{font-family:"Fraunces",serif; font-size:16px; margin:0 0 2px;}
+  .panel .sub{font-size:12px; color:var(--muted); margin:0 0 8px;}
+
+  table.map{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.map th{
+    font-family:"IBM Plex Mono",monospace; font-size:10px; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--muted); text-align:left; padding:0 6px 6px; border-bottom:1px solid var(--line);
+  }
+  table.map td{padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  table.map td:first-child{font-weight:600;}
+  select{
+    width:100%; background:var(--panel-2); border:1px solid var(--line-strong); border-radius:7px;
+    color:var(--ink); font-family:"IBM Plex Mono",monospace; font-size:11.5px; padding:6px 7px;
+  }
+  select:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  select:disabled{opacity:.55;}
+
+  .field-desc{font-size:11px; color:var(--muted); margin-top:2px; min-height:14px;}
+
+  footer{
+    margin-top:16px; text-align:center; font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted);
+  }
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <p class="eyebrow">Live workshop tool</p>
+      <h1>Mapping Playground</h1>
+      <p class="tagline" id="tagline">A simulated public data feed, generated in your browser. Wire it up below and listen.</p>
+    </div>
+    <span class="badge" id="sourceBadge">&#9679; simulated feed, not live data</span>
+  </header>
+
+  <div class="layout">
+
+    <div class="stage">
+      <canvas id="canvas" width="960" height="600"></canvas>
+
+      <div class="sourcerow">
+        <label for="sourceSelect">Data source</label>
+        <select id="sourceSelect"></select>
+      </div>
+
+      <div class="transport">
+        <button class="primary" id="startBtn">Start</button>
+        <button id="stopBtn" disabled>Pause</button>
+        <div class="sliderrow simOnly" id="activityRow">
+          <span>activity</span>
+          <input type="range" id="activity" min="1" max="10" value="4">
+          <span class="val" id="activityVal">4</span>
+        </div>
+        <div class="sliderrow simOnly" id="swarmRow">
+          <span>swarm chance</span>
+          <input type="range" id="swarm" min="0" max="10" value="2">
+          <span class="val" id="swarmVal">2</span>
+        </div>
+      </div>
+
+      <div class="log" id="log"></div>
+    </div>
+
+    <div class="panel">
+      <div>
+        <h2>Mapping</h2>
+        <p class="sub">Each field can drive one sound parameter and one visual parameter. Change it live, mid-playback.</p>
+        <table class="map">
+          <thead><tr><th>Field</th><th>Sound</th><th>Visual</th></tr></thead>
+          <tbody id="mapBody"></tbody>
+        </table>
+        <p class="field-desc" id="fieldHint"></p>
+      </div>
+
+      <div>
+        <h2>What's happening</h2>
+        <p class="sub" id="statusText">Baseline pad is playing. Bigger primary-field events push the mapped parameters further.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>mapping playground &middot; data &rarr; story &rarr; mapping, made audible</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // Data sources. Each declares: id, name, live, tagline, badge,
+  // fieldA/fieldB (numeric), fieldC (categorical), and
+  // start(onEvent, onStatus) / stop(). "rate" is computed generically
+  // (events per minute) and does not need to be declared per source.
+  // ============================================================
+
+  function evenHues(list){
+    var map = {};
+    list.forEach(function(v,i){ map[v] = Math.round(i * (360/list.length)); });
+    return map;
+  }
+  function hashHue(str){
+    var h = 0;
+    for(var i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
+    return h % 360;
+  }
+
+  // ---------- SIMULATED (default, no network) ----------
+  var REGIONS = ["Kelso Ridge","Vale Fracture","Amber Shelf","Coral Deep","Talon Basin","Reed Plateau","Iron Trench","Salt Flat Line"];
+  var REGION_HUE = evenHues(REGIONS);
+
+  var simTimer = null;
+  function powerLawMagnitude(){
+    var u = Math.random();
+    return Math.min(1.0 + (-Math.log(1 - u)) * 1.15, 7.8);
+  }
+  var SIMULATED = {
+    id:"simulated", name:"Simulated seismic (default, offline)", live:false,
+    tagline:"A simulated public data feed, generated entirely in your browser. Nothing is fetched.",
+    fieldA:{label:"Magnitude", desc:"event size, 1.0–7.5, power-law: mostly small, rarely huge", range:[1,7.8]},
+    fieldB:{label:"Depth", desc:"2–700 km, how deep the event originates", range:[2,700]},
+    fieldC:{label:"Region", desc:"which of 8 simulated zones the event came from", categorical:true, hueOf:function(v){ return REGION_HUE[v]; }},
+    hasControls:true,
+    start:function(onEvent, onStatus){
+      onStatus("ok", "Simulated feed running.");
+      function tick(){
+        var doEvent = Math.random() < (window.__mpActivity/24);
+        if(doEvent) onEvent({a:powerLawMagnitude(), b:2+Math.random()*698, c:REGIONS[Math.floor(Math.random()*REGIONS.length)]}, false);
+        var swarmRoll = Math.random()*100 < window.__mpSwarm;
+        if(swarmRoll){
+          var n = 3 + Math.floor(Math.random()*6), i = 0;
+          var burstTimer = setInterval(function(){
+            onEvent({a:powerLawMagnitude(), b:2+Math.random()*698, c:REGIONS[Math.floor(Math.random()*REGIONS.length)]}, true);
+            i++; if(i>=n) clearInterval(burstTimer);
+          }, 140);
+        }
+        simTimer = setTimeout(tick, 350 + Math.random()*550);
+      }
+      tick();
+    },
+    stop:function(){ if(simTimer) clearTimeout(simTimer); simTimer = null; }
+  };
+
+  // ---------- EARTHQUAKES (live, USGS) ----------
+  var eqTimer = null, eqSeen = {};
+  var EARTHQUAKES = {
+    id:"earthquakes", name:"Earthquakes — USGS (live)", live:true,
+    tagline:"A real, live feed of earthquakes worldwide from the USGS, polled every 60 seconds.",
+    fieldA:{label:"Magnitude", desc:"reported earthquake magnitude", range:[0,7.5]},
+    fieldB:{label:"Depth (km)", desc:"how deep the earthquake originated", range:[0,700]},
+    fieldC:{label:"Location", desc:"the USGS place description", categorical:true, hueOf:function(v){ return hashHue(v); }},
+    hasControls:false,
+    start:function(onEvent, onStatus){
+      eqSeen = {};
+      function poll(){
+        onStatus("loading", "Fetching latest earthquakes…");
+        fetch("https://earthquake.usgs.gov/earthquake/feed/v1.0/summary/all_hour.geojson")
+          .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+          .then(function(data){
+            var feats = (data && data.features) || [];
+            var fresh = feats.filter(function(f){ return !eqSeen[f.id]; });
+            fresh.forEach(function(f){ eqSeen[f.id] = true; });
+            onStatus("ok", "USGS feed live — " + feats.length + " events in the last hour.");
+            // stagger newly-seen quakes out over ~20s so a first big batch doesn't all fire at once
+            fresh.slice(0, 12).forEach(function(f, i){
+              setTimeout(function(){
+                var p = f.properties || {};
+                var coords = (f.geometry && f.geometry.coordinates) || [0,0,10];
+                onEvent({
+                  a: typeof p.mag === "number" ? p.mag : 1,
+                  b: typeof coords[2] === "number" ? coords[2] : 10,
+                  c: p.place || "Unknown"
+                }, p.mag >= 4.5);
+              }, i * 1600);
+            });
+          })
+          .catch(function(err){
+            onStatus("error", "Couldn't reach the USGS feed (" + err.message + "). Check the network and try again.");
+          });
+      }
+      poll();
+      eqTimer = setInterval(poll, 60000);
+    },
+    stop:function(){ if(eqTimer) clearInterval(eqTimer); eqTimer = null; }
+  };
+
+  // ---------- WEATHER (live, Open-Meteo) ----------
+  var CITIES = [
+    {name:"Budapest", lat:47.4979, lon:19.0402},
+    {name:"Reykjavik", lat:64.1466, lon:-21.9426},
+    {name:"Singapore", lat:1.3521, lon:103.8198},
+    {name:"Nairobi", lat:-1.2921, lon:36.8219},
+    {name:"Santiago", lat:-33.4489, lon:-70.6693},
+    {name:"Tokyo", lat:35.6762, lon:139.6503}
+  ];
+  var CITY_HUE = evenHues(CITIES.map(function(c){ return c.name; }));
+  var wxTimer = null, wxIdx = 0;
+  var WEATHER = {
+    id:"weather", name:"Weather — Open-Meteo (live)", live:true,
+    tagline:"Live current-weather readings from Open-Meteo, cycling through six cities.",
+    fieldA:{label:"Temperature (°C)", desc:"current temperature at 2m", range:[-20,42]},
+    fieldB:{label:"Wind speed (km/h)", desc:"current wind speed at 10m", range:[0,110]},
+    fieldC:{label:"City", desc:"which of six cities this reading is from", categorical:true, hueOf:function(v){ return CITY_HUE[v]; }},
+    hasControls:false,
+    start:function(onEvent, onStatus){
+      wxIdx = 0;
+      function poll(){
+        var city = CITIES[wxIdx % CITIES.length];
+        wxIdx++;
+        onStatus("loading", "Fetching weather for " + city.name + "…");
+        var url = "https://api.open-meteo.com/v1/forecast?latitude=" + city.lat + "&longitude=" + city.lon + "&current=temperature_2m,wind_speed_10m,precipitation";
+        fetch(url)
+          .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+          .then(function(data){
+            var cur = (data && data.current) || {};
+            onStatus("ok", "Open-Meteo live — last read " + city.name + ".");
+            onEvent({
+              a: typeof cur.temperature_2m === "number" ? cur.temperature_2m : 15,
+              b: typeof cur.wind_speed_10m === "number" ? cur.wind_speed_10m : 5,
+              c: city.name
+            }, (cur.precipitation || 0) > 1);
+          })
+          .catch(function(err){
+            onStatus("error", "Couldn't reach Open-Meteo (" + err.message + ").");
+          });
+      }
+      poll();
+      wxTimer = setInterval(poll, 6000);
+    },
+    stop:function(){ if(wxTimer) clearInterval(wxTimer); wxTimer = null; }
+  };
+
+  // ---------- WIKIPEDIA EDITS (live, Wikimedia EventStreams) ----------
+  var wikiSource = null;
+  var WIKI = {
+    id:"wiki", name:"Wikipedia edits — Wikimedia (live)", live:true,
+    tagline:"A real, live stream of Wikipedia edits as they happen, from the Wikimedia EventStreams API.",
+    fieldA:{label:"Edit size", desc:"bytes changed by the edit", range:[0,1500]},
+    fieldB:{label:"Summary length", desc:"characters in the edit summary", range:[0,120]},
+    fieldC:{label:"Project", desc:"which Wikimedia project the edit is on", categorical:true, hueOf:function(v){ return hashHue(v); }},
+    hasControls:false,
+    start:function(onEvent, onStatus){
+      try{
+        wikiSource = new EventSource("https://stream.wikimedia.org/v2/stream/recentchange");
+      }catch(err){
+        onStatus("error", "Couldn't open the Wikimedia stream (" + err.message + ").");
+        return;
+      }
+      onStatus("loading", "Connecting to the Wikimedia edit stream…");
+      wikiSource.onopen = function(){ onStatus("ok", "Wikimedia stream live."); };
+      wikiSource.onerror = function(){ onStatus("error", "Wikimedia stream dropped. Retrying…"); };
+      wikiSource.onmessage = function(msg){
+        try{
+          var d = JSON.parse(msg.data);
+          if(d.type !== "edit" || !d.length) return;
+          var sizeChange = Math.abs((d.length.new||0) - (d.length.old||0));
+          onEvent({
+            a: sizeChange,
+            b: (d.comment||"").length,
+            c: d.server_name || d.wiki || "wikipedia.org"
+          }, sizeChange > 400);
+        }catch(e){ /* ignore malformed messages */ }
+      };
+    },
+    stop:function(){ if(wikiSource){ wikiSource.close(); wikiSource = null; } }
+  };
+
+  var SOURCES = [SIMULATED, EARTHQUAKES, WEATHER, WIKI];
+  var currentSource = SIMULATED;
+
+  // ============================================================
+  // parameter options + mapping (keys a/b/c/rate are uniform
+  // across every source, so the mapping choice survives a switch)
+  // ============================================================
+  var SOUND_OPTS = ["None","Pitch","Volume","Distortion","Filter cutoff","Duration","Tempo / density"];
+  var VISUAL_OPTS = ["None","Colour hue","Contrast / glitch","Grain","Motion","Blur"];
+
+  var mapping = {
+    a:    {sound:"Pitch", visual:"Contrast / glitch"},
+    b:    {sound:"Filter cutoff", visual:"Blur"},
+    c:    {sound:"None", visual:"Colour hue"},
+    rate: {sound:"Tempo / density", visual:"Motion"}
+  };
+
+  function currentFields(){
+    return [
+      Object.assign({key:"a"}, currentSource.fieldA),
+      Object.assign({key:"b"}, currentSource.fieldB),
+      Object.assign({key:"c"}, currentSource.fieldC),
+      {key:"rate", label:"Event rate", desc:"how many events are landing per minute right now", range:[0,20]}
+    ];
+  }
+
+  // ---------- state ----------
+  var running = false;
+  var glitchAmount = 0;
+  var particles = [];
+  var rateWindow = [];
+  var lastRate = 0;
+
+  window.__mpActivity = 4;
+  window.__mpSwarm = 2;
+
+  // ---------- log (defined early: the source-select handler below uses it) ----------
+  var logEl = document.getElementById("log");
+  function logRow(text, cls){
+    var row = document.createElement("div");
+    row.className = "row" + (cls ? " " + cls : "");
+    var t = new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    row.innerHTML = '<span class="t">'+t+'</span><span>'+text+'</span>';
+    logEl.insertBefore(row, logEl.firstChild);
+    while(logEl.childNodes.length > 40) logEl.removeChild(logEl.lastChild);
+  }
+  function fmt(v){ return (typeof v === "number") ? (Math.round(v*10)/10) : v; }
+  function esc(s){ var d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+  function logEvent(ev, isBurst){
+    var f = currentFields();
+    logRow((isBurst?"&#9679; ":"") + f[0].label + " " + fmt(ev.a) + " &middot; " + f[1].label + " " + fmt(ev.b) + " &middot; " + esc(String(ev.c)), isBurst ? "burst" : "");
+  }
+  function setStatus(kind, text){
+    document.getElementById("statusText").textContent = text;
+    if(kind === "error") logRow(esc(text), "error");
+  }
+
+  // ---------- UI: mapping table (defined early: the source-select handler below calls it) ----------
+  var mapBody = document.getElementById("mapBody");
+  function renderMappingTable(){
+    mapBody.innerHTML = "";
+    currentFields().forEach(function(f){
+      var tr = document.createElement("tr");
+      var tdName = document.createElement("td");
+      tdName.textContent = f.label;
+      tdName.title = f.desc || "";
+      tr.appendChild(tdName);
+
+      var tdSound = document.createElement("td");
+      if(f.categorical){
+        tdSound.innerHTML = '<span style="color:var(--muted);font-family:\'IBM Plex Mono\',monospace;font-size:11px;">n/a (categorical)</span>';
+      } else {
+        var selS = document.createElement("select");
+        SOUND_OPTS.forEach(function(o){ var op=document.createElement("option"); op.value=o; op.textContent=o; if(o===mapping[f.key].sound) op.selected=true; selS.appendChild(op); });
+        selS.addEventListener("change", function(){ mapping[f.key].sound = selS.value; });
+        tdSound.appendChild(selS);
+      }
+      tr.appendChild(tdSound);
+
+      var tdVis = document.createElement("td");
+      var selV = document.createElement("select");
+      VISUAL_OPTS.forEach(function(o){ var op=document.createElement("option"); op.value=o; op.textContent=o; if(o===mapping[f.key].visual) op.selected=true; selV.appendChild(op); });
+      selV.addEventListener("change", function(){ mapping[f.key].visual = selV.value; });
+      tdVis.appendChild(selV);
+      tr.appendChild(tdVis);
+
+      tr.addEventListener("mouseenter", function(){ document.getElementById("fieldHint").textContent = f.label + (f.desc ? ": " + f.desc : ""); });
+      mapBody.appendChild(tr);
+    });
+  }
+
+  // ---------- UI: source select ----------
+  var sourceSelect = document.getElementById("sourceSelect");
+  SOURCES.forEach(function(s){
+    var op = document.createElement("option");
+    op.value = s.id; op.textContent = s.name;
+    sourceSelect.appendChild(op);
+  });
+  sourceSelect.addEventListener("change", function(){
+    currentSource = SOURCES.filter(function(s){ return s.id === sourceSelect.value; })[0];
+    document.getElementById("tagline").textContent = currentSource.tagline;
+    var badge = document.getElementById("sourceBadge");
+    badge.className = "badge" + (currentSource.live ? " live" : "");
+    badge.textContent = (currentSource.live ? "● live feed" : "● simulated feed, not live data");
+    document.getElementById("activityRow").dataset.hidden = currentSource.hasControls ? "false" : "true";
+    document.getElementById("swarmRow").dataset.hidden = currentSource.hasControls ? "false" : "true";
+    renderMappingTable();
+    logEl.innerHTML = "";
+  });
+  // fire once to initialise tagline/badge/mapping table
+  sourceSelect.dispatchEvent(new Event("change"));
+
+  // ---------- sliders (simulated source only) ----------
+  var activityEl = document.getElementById("activity");
+  var activityVal = document.getElementById("activityVal");
+  activityEl.addEventListener("input", function(){ window.__mpActivity = +activityEl.value; activityVal.textContent = window.__mpActivity; });
+
+  var swarmEl = document.getElementById("swarm");
+  var swarmVal = document.getElementById("swarmVal");
+  swarmEl.addEventListener("input", function(){ window.__mpSwarm = +swarmEl.value; swarmVal.textContent = window.__mpSwarm; });
+
+  // ---------- audio ----------
+  var padSynth, filter, dist, chorus, reverb, burstSynth, hat;
+  var audioReady = false;
+
+  function buildAudio(){
+    filter = new Tone.Filter(1800, "lowpass");
+    dist = new Tone.Distortion(0);
+    chorus = new Tone.Chorus(3, 2.2, 0.25).start();
+    reverb = new Tone.Reverb({decay:6, wet:0.35});
+
+    padSynth = new Tone.PolySynth(Tone.Synth, {
+      oscillator:{type:"sine"},
+      envelope:{attack:4, decay:2, sustain:0.6, release:9}
+    });
+    padSynth.chain(chorus, dist, filter, reverb, Tone.Destination);
+    padSynth.volume.value = -14;
+
+    burstSynth = new Tone.MembraneSynth({
+      pitchDecay:0.02, octaves:4,
+      envelope:{attack:0.001, decay:0.35, sustain:0, release:0.2}
+    });
+    burstSynth.chain(dist, Tone.Destination);
+    burstSynth.volume.value = -8;
+
+    hat = new Tone.NoiseSynth({noise:{type:"white"}, envelope:{attack:0.001, decay:0.04, sustain:0}});
+    hat.volume.value = -26;
+    hat.connect(Tone.Destination);
+
+    audioReady = true;
+    scheduleChords();
+  }
+
+  var CHORDS = [
+    ["A3","C4","E4","G4"],
+    ["F3","A3","C4","E4"],
+    ["D3","F3","A3","C4"],
+    ["G3","B3","D4","F4"]
+  ];
+  var chordTimer = null;
+  function scheduleChords(){
+    function playChord(){
+      if(!running) return;
+      var c = CHORDS[Math.floor(Math.random()*CHORDS.length)];
+      padSynth.triggerAttackRelease(c, "6n+4n");
+    }
+    playChord();
+    chordTimer = setInterval(playChord, 8000);
+  }
+
+  function pitchFromValue(v, lo, hi, noteLo, noteHi){
+    var t = Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+    var midi = noteLo + t * (noteHi - noteLo);
+    return Tone.Frequency(midi, "midi").toFrequency();
+  }
+
+  function applyEventToAudio(ev){
+    var s;
+
+    s = fieldMappedTo("Pitch");
+    var note = s ? pitchFromValue(ev[s], rangeOf(s)[0], rangeOf(s)[1], 40, 76) : 55;
+
+    var vel = 0.5;
+    s = fieldMappedTo("Volume");
+    if(s) vel = 0.25 + 0.7 * norm(ev[s], rangeOf(s));
+
+    var durS = fieldMappedTo("Duration");
+    var dur = durS ? (0.1 + 0.5*norm(ev[durS], rangeOf(durS))) : 0.2;
+
+    burstSynth.triggerAttackRelease(note, dur, undefined, vel);
+
+    s = fieldMappedTo("Distortion");
+    if(s){
+      var amt = norm(ev[s], rangeOf(s));
+      dist.wet.rampTo(Math.min(0.85, amt), 0.05);
+      dist.wet.rampTo(0, 1.4);
+    }
+
+    s = fieldMappedTo("Filter cutoff");
+    if(s){
+      var t = norm(ev[s], rangeOf(s));
+      var freq = 300 + (1 - t) * 4200;
+      filter.frequency.rampTo(freq, 0.08);
+      filter.frequency.rampTo(1800, 1.6);
+    }
+
+    s = fieldMappedTo("Tempo / density");
+    if(s){
+      var density = norm(ev[s], rangeOf(s));
+      if(Math.random() < 0.3 + 0.6*density) hat.triggerAttackRelease("16n");
+    }
+  }
+
+  function fieldMappedTo(soundParam){
+    var f = currentFields();
+    for(var i=0;i<f.length;i++){
+      if(f[i].categorical) continue;
+      if(mapping[f[i].key].sound === soundParam) return f[i].key;
+    }
+    return null;
+  }
+  function fieldMappedToVisual(param){
+    var f = currentFields();
+    for(var i=0;i<f.length;i++){
+      if(mapping[f[i].key].visual === param) return f[i].key;
+    }
+    return null;
+  }
+  function rangeOf(key){
+    var f = currentFields().filter(function(x){ return x.key === key; })[0];
+    return (f && f.range) ? f.range : [0,1];
+  }
+  function norm(v, range){ return Math.max(0, Math.min(1, (v-range[0])/(range[1]-range[0]))); }
+
+  // ---------- visuals ----------
+  var canvas = document.getElementById("canvas");
+  var ctx = canvas.getContext("2d");
+
+  function spawnParticle(ev){
+    var hue = 265;
+    var hueField = fieldMappedToVisual("Colour hue");
+    if(hueField){
+      var f = currentFields().filter(function(x){ return x.key===hueField; })[0];
+      if(f && f.categorical && f.hueOf) hue = f.hueOf(ev[hueField]);
+      else if(f) hue = 200 + 140*norm(ev[hueField], rangeOf(hueField));
+    }
+
+    var size = 14 + 60 * norm(ev.a, rangeOf("a"));
+
+    var blur = 0;
+    var blurField = fieldMappedToVisual("Blur");
+    if(blurField && !currentFields().filter(function(x){return x.key===blurField;})[0].categorical) blur = 22 * norm(ev[blurField], rangeOf(blurField));
+
+    particles.push({
+      x: 80 + Math.random()*(canvas.width-160),
+      y: 80 + Math.random()*(canvas.height-160),
+      r: 2, maxR: size, hue: hue, life: 1, blur: blur
+    });
+
+    var glitchField = fieldMappedToVisual("Contrast / glitch");
+    if(glitchField && !currentFields().filter(function(x){return x.key===glitchField;})[0].categorical){
+      glitchAmount = Math.max(glitchAmount, 0.25 + 0.85*norm(ev[glitchField], rangeOf(glitchField)));
+    }
+  }
+
+  var t0 = performance.now();
+  function draw(){
+    var w = canvas.width, h = canvas.height;
+    var time = (performance.now()-t0)/1000;
+
+    var g = ctx.createLinearGradient(0,0,w,h);
+    g.addColorStop(0, "hsl(268,45%,88%)");
+    g.addColorStop(0.5, "hsl(330,40%,90%)");
+    g.addColorStop(1, "hsl(28,55%,90%)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,w,h);
+
+    for(var i=0;i<4;i++){
+      var bx = w*0.2 + w*0.6*(0.5+0.5*Math.sin(time*0.05 + i*2));
+      var by = h*0.2 + h*0.6*(0.5+0.5*Math.cos(time*0.04 + i*3));
+      var rg = ctx.createRadialGradient(bx,by,0,bx,by,220);
+      rg.addColorStop(0, "hsla("+(260+i*30)+",50%,85%,0.35)");
+      rg.addColorStop(1, "hsla("+(260+i*30)+",50%,85%,0)");
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(bx,by,220,0,Math.PI*2); ctx.fill();
+    }
+
+    particles.forEach(function(p){
+      p.r += (p.maxR - p.r) * 0.15;
+      p.life -= 0.012;
+      ctx.save();
+      if(p.blur > 0.5){ ctx.shadowColor = "hsla("+p.hue+",70%,55%,0.9)"; ctx.shadowBlur = p.blur; }
+      ctx.beginPath();
+      ctx.fillStyle = "hsla("+p.hue+",70%,55%,"+Math.max(0,p.life*0.55)+")";
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    });
+    particles = particles.filter(function(p){ return p.life > 0; });
+
+    var motionField = fieldMappedToVisual("Motion");
+    var shake = motionField ? 6 * norm(lastRate, rangeOf("rate")) : 0;
+
+    var grainField = fieldMappedToVisual("Grain");
+    if(grainField){
+      var imgData = ctx.getImageData(0,0,w,h);
+      var d = imgData.data;
+      var strength = 18 + 40*glitchAmount;
+      for(var p2=0;p2<d.length;p2+=4*7){
+        var n = (Math.random()-0.5)*strength;
+        d[p2]+=n; d[p2+1]+=n; d[p2+2]+=n;
+      }
+      ctx.putImageData(imgData,0,0);
+    }
+
+    if(glitchAmount > 0.02){
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.9, glitchAmount);
+      ctx.globalCompositeOperation = "screen";
+      ctx.drawImage(canvas, -6*glitchAmount + shake, 0);
+      ctx.globalCompositeOperation = "difference";
+      ctx.drawImage(canvas, 6*glitchAmount - shake, 0);
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = glitchAmount*0.5;
+      ctx.fillStyle = "#111";
+      ctx.globalCompositeOperation = "saturation" in ctx ? "saturation" : "color";
+      ctx.fillRect(0,0,w,h);
+      ctx.restore();
+
+      glitchAmount *= 0.90;
+    }
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  // ---------- event intake (shared by every source) ----------
+  function onEvent(rawEv, isBurst){
+    rateWindow.push(performance.now());
+    rateWindow = rateWindow.filter(function(ts){ return performance.now()-ts < 60000; });
+    lastRate = rateWindow.length;
+    var ev = {a: rawEv.a, b: rawEv.b, c: rawEv.c, rate: lastRate};
+
+    logEvent(ev, isBurst);
+    spawnParticle(ev);
+    if(audioReady) applyEventToAudio(ev);
+  }
+
+  // ---------- transport ----------
+  var startBtn = document.getElementById("startBtn");
+  var stopBtn = document.getElementById("stopBtn");
+
+  function beginSource(){
+    running = true;
+    startBtn.disabled = true; stopBtn.disabled = false;
+    sourceSelect.disabled = true;
+    rateWindow = []; lastRate = 0;
+    currentSource.start(onEvent, setStatus);
+  }
+
+  startBtn.addEventListener("click", function(){
+    if(!audioReady){
+      Tone.start().then(function(){
+        buildAudio();
+        beginSource();
+      });
+    } else {
+      Tone.context.resume();
+      if(!chordTimer) scheduleChords();
+      beginSource();
+    }
+  });
+
+  stopBtn.addEventListener("click", function(){
+    running = false;
+    startBtn.disabled = false; stopBtn.disabled = true;
+    sourceSelect.disabled = false;
+    currentSource.stop();
+    if(chordTimer){ clearInterval(chordTimer); chordTimer = null; }
+  });
+
+})();
+</script>
+</body>
+</html>
