@@ -71,14 +71,19 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className }
   const amountOf = (source, target) => patches.find((x) => x.source === source && x.target === target)?.amount ?? 0
 
   return (
-    <section className={cn('overflow-auto', className)} aria-label="Modulation matrix">
-      <table className="w-full border-separate border-spacing-x-1 border-spacing-y-0.5 text-xs">
+    <section className={cn('@container overflow-auto', className)} aria-label="Modulation matrix">
+      <table className="w-full table-fixed border-separate border-spacing-x-1 border-spacing-y-0.5 text-xs">
         <thead className="sticky top-0 z-10 bg-background">
           <tr>
-            <th className="py-2 pl-1 text-left text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Matrix</th>
+            <th className="w-[30%] py-2 pl-1 text-left text-[11px] font-medium tracking-wider text-muted-foreground uppercase @[36rem]:w-48">
+              Matrix
+            </th>
             {SOURCES.map((s) => (
-              <th key={s.id} className="w-14 py-2 font-normal" title={`${s.label}: ${s.hint}`}>
-                <div className="mb-1 text-[11px] text-foreground">{s.short}</div>
+              <th key={s.id} className="py-2 font-normal" title={`${s.label}: ${s.hint}`}>
+                <div className="mb-1 truncate text-[11px] text-foreground">
+                  <span className="@[36rem]:hidden">{s.short}</span>
+                  <span className="hidden @[36rem]:inline">{s.label}</span>
+                </div>
                 <Meter id={s.id} />
               </th>
             ))}
@@ -103,9 +108,12 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className }
                 <button
                   type="button"
                   onClick={() => onSelect(p.key)}
-                  className={cn('truncate py-1 text-left outline-none focus-visible:underline', p.key === selected ? 'text-orange-300' : 'text-foreground')}
+                  className={cn('block w-full truncate py-0.5 text-left leading-tight outline-none focus-visible:underline', p.key === selected ? 'text-orange-300' : 'text-foreground')}
                 >
-                  <span className="text-muted-foreground">{p.module.label} · </span>
+                  <span className="block truncate text-[10px] text-muted-foreground @[36rem]:inline @[36rem]:text-xs">
+                    {p.module.label}
+                    <span className="hidden @[36rem]:inline"> · </span>
+                  </span>
                   {p.label}
                 </button>
               </th>
