@@ -17,7 +17,7 @@ export function normalize(event, ctx) {
 // Holds the latest per-event values plus smoothed followers of every source, so
 // continuous targets (drone, visual field) glide instead of jumping per event.
 export function createSources() {
-  const latest = { port: 0, portPop: 0, ip: 0, ipVol: 0, density: 0, threat: 0 }
+  const latest = { port: 0, portPop: 0, ip: 0, ipVol: 0, density: 0, threat: 0, hit: 0 }
   const smooth = { ...latest }
 
   return {

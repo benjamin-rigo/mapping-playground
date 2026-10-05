@@ -40,7 +40,8 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
     if (!modulated || !engine || !id) return
     let raf
     const loop = () => {
-      const live = engine.live[id]
+      const off = engine.live.offsets?.[id]
+      const live = off == null ? null : Math.max(0, Math.min(1, valueRef.current + off))
       if (live != null && liveArc.current) {
         const base = valueRef.current
         const [x, y] = point(live, R)

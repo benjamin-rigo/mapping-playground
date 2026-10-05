@@ -1,110 +1,100 @@
 const VERT = `attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }`
 
-const FRAG = `
+const COMMON = `
 precision highp float;
 uniform vec2 uRes;
-uniform float uTime, uScale, uTurb, uDetail, uThreshold, uSoft, uGrain, uChar, uStretch, uSym, uBands;
-uniform vec2 uFlow;
-uniform vec3 uPaper, uInkA, uInkB, uTint;
-uniform vec2 uCenter;
-uniform float uReach, uSwirl, uPush, uRipple, uSmear, uShatter, uPix, uTintAmt, uInkHit;
-
+uniform float uTime;
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
   return fract(p.x * p.y);
 }
+`
+
+// Frame pass: draws the pastel fluid source and mixes it with the previous frame,
+// which is resampled with zoom/rotate/self-warp (feedback), block offsets (mosh),
+// RGB split, row tearing, data barcodes (grid) and static.
+const FRAME = `${COMMON}
+uniform sampler2D uPrev;
+uniform float uScale, uTurb, uSoft, uThreshold, uFb, uZoom, uRot, uWarp, uMosh, uBlock, uGrid, uRgb, uTear, uStatic;
+uniform vec2 uFlow, uCenter;
+uniform vec3 uPaper, uInkA, uInkB;
+
 float noise(vec2 p) {
   vec2 i = floor(p), f = fract(p);
   vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
 }
-float cell(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  float d = 1.0;
-  for (int y = -1; y <= 1; y++) {
-    for (int x = -1; x <= 1; x++) {
-      vec2 g = vec2(float(x), float(y));
-      vec2 o = vec2(hash(i + g), hash(i + g + 17.1));
-      d = min(d, length(g + o - f));
-    }
-  }
-  return d;
-}
-// Character morphs the base noise: smooth -> ridged -> billow -> cellular.
-float base(vec2 p) {
-  float c = uChar * 3.0;
-  float n = noise(p);
-  float ridged = 1.0 - abs(2.0 * n - 1.0);
-  if (c < 1.0) return mix(n, ridged, c);
-  float billow = abs(2.0 * n - 1.0);
-  if (c < 2.0) return mix(ridged, billow, c - 1.0);
-  return mix(billow, cell(p), c - 2.0);
-}
 float fbm(vec2 p) {
-  float v = 0.0, a = 0.5, tot = 0.0;
-  for (int i = 0; i < 6; i++) {
-    float w = clamp(uDetail - float(i), 0.0, 1.0);
-    v += a * w * base(p);
-    tot += a * w;
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 5; i++) {
+    v += a * noise(p);
     p = mat2(1.6, 1.2, -1.2, 1.6) * p + 3.1;
     a *= 0.5;
   }
-  return v / max(tot, 0.001);
+  return v / 0.97;
 }
+
 void main() {
-  vec2 uv = gl_FragCoord.xy / uRes.y;
-  vec2 aspect = vec2(uRes.x / uRes.y, 1.0);
-  // Whole-frame distortions. Swirl, push and ripple centre on the impact point and
-  // fade out over Reach; smear, shatter, pixelate and tint cover everything.
-  vec2 c = uCenter * aspect;
-  vec2 d = uv - c;
-  float rad = length(d);
-  float fall = exp(-rad * rad / (uReach * uReach));
-  vec2 dir = d / (rad + 0.0001);
-  float ang = uSwirl * 7.0 * fall;
-  vec2 suv = c + mat2(cos(ang), sin(ang), -sin(ang), cos(ang)) * d;
-  suv -= dir * (uPush * 2.0 - 1.0) * 0.25 * fall;
-  suv += dir * sin(rad * 55.0 - uTime * 7.0) * 0.03 * uRipple * mix(1.0, fall, 0.6);
-  float jit = floor(uTime * 12.0);
-  float row = floor(uv.y * 90.0);
-  if (hash(vec2(row, jit)) < uSmear * 0.7) suv.x += (hash(vec2(row + 3.1, jit)) - 0.5) * 0.5 * uSmear;
-  vec2 block = floor(uv * 14.0);
-  if (hash(block + jit) < uShatter * 0.6) suv += (vec2(hash(block + 1.3 + jit), hash(block + 2.7 + jit)) - 0.5) * 0.3 * uShatter;
-  if (uPix > 0.01) {
-    float n = mix(260.0, 10.0, uPix);
-    suv = (floor(suv * n) + 0.5) / n;
-  }
-  float ink = uInkHit * fall;
-  float tint = uTintAmt * mix(0.25, 1.0, fall) * 0.7;
-  // Symmetry: 1 mirrors, 2..8 folds into kaleidoscope slices around the centre.
-  float segs = floor(uSym * 8.0 + 0.5);
-  if (segs > 0.5) {
-    vec2 sc = vec2(aspect.x * 0.5, 0.5);
-    vec2 sd = suv - sc;
-    if (segs < 1.5) {
-      sd.x = abs(sd.x);
-    } else {
-      float seg = 6.2831853 / segs;
-      float a = mod(atan(sd.y, sd.x), seg);
-      a = abs(a - seg * 0.5);
-      sd = length(sd) * vec2(cos(a), sin(a));
-    }
-    suv = sc + sd;
-  }
-  float sx = exp2((uStretch - 0.5) * 5.0);
-  vec2 p = suv * uScale * vec2(1.0 / sx, sx);
+  vec2 uv = gl_FragCoord.xy / uRes;
+  float aspect = uRes.x / uRes.y;
+  float jit = floor(uTime * 14.0);
+
+  // row tearing shifts whole scanlines
+  float row = floor(uv.y * 70.0);
+  if (hash(vec2(row, jit)) < uTear * 0.5) uv.x += (hash(vec2(row + 7.0, jit)) - 0.5) * 0.3 * uTear;
+
+  // source: domain-warped fbm ink in paper
+  vec2 p = vec2(uv.x * aspect, uv.y) * (0.8 + uScale * 6.0);
   vec2 q = vec2(fbm(p + uFlow), fbm(p + vec2(5.2, 1.3) - uFlow * 0.7));
-  vec2 r = vec2(fbm(p + uTurb * 4.0 * q + vec2(1.7, 9.2) + 0.15 * uFlow), fbm(p + uTurb * 4.0 * q + vec2(8.3, 2.8) - 0.126 * uFlow));
-  float v = fbm(p + uTurb * 4.0 * r) + ink;
+  float v = fbm(p + uTurb * 4.0 * q);
   float t = smoothstep(uThreshold - uSoft, uThreshold + uSoft, v);
-  if (uBands > 0.01) {
-    float levels = floor(mix(16.0, 2.0, uBands));
-    t = floor(t * levels + 0.5) / levels;
-  }
-  vec3 inkCol = mix(uInkA, uInkB, smoothstep(0.3, 0.7, q.x));
-  vec3 col = mix(uPaper, inkCol, t);
-  col = mix(col, uTint, clamp(tint, 0.0, 1.0));
+  vec3 src = mix(uPaper, mix(uInkA, uInkB, smoothstep(0.3, 0.7, q.x)), t);
+
+  // feedback: previous frame zoomed / rotated around the centre and warped by itself
+  vec2 c = uCenter;
+  vec2 d = uv - c;
+  d.x *= aspect;
+  float ang = (uRot - 0.5) * 0.08;
+  d = mat2(cos(ang), sin(ang), -sin(ang), cos(ang)) * d;
+  d *= 1.0 - (uZoom - 0.5) * 0.06;
+  d.x /= aspect;
+  vec2 fuv = c + d;
+  vec3 self = texture2D(uPrev, uv).rgb;
+  fuv += (self.rg - 0.5) * uWarp * 0.04;
+
+  // mosh: some blocks keep sliding the old picture instead of refreshing
+  float cells = mix(48.0, 6.0, uBlock);
+  vec2 block = floor(uv * vec2(cells * aspect, cells));
+  float stuck = step(hash(block + floor(uTime * 3.0)), uMosh * 0.7);
+  fuv += stuck * (vec2(hash(block + 1.7), hash(block + 4.1)) - 0.5) * 0.02;
+
+  float split = uRgb * 0.012;
+  vec3 prev = vec3(
+    texture2D(uPrev, fuv + vec2(split, 0.0)).r,
+    texture2D(uPrev, fuv).g,
+    texture2D(uPrev, fuv - vec2(split, 0.0)).b
+  );
+
+  float keep = clamp(uFb + stuck * 0.25, 0.0, 0.985);
+  vec3 col = mix(src, prev, keep);
+
+  // grid: raw barcode columns flashing in bands
+  float band = step(hash(vec2(floor(uv.y * 18.0), floor(uTime * 5.0))), uGrid);
+  float bar = step(0.55, hash(vec2(floor(uv.x * mix(40.0, 400.0, hash(vec2(floor(uv.y * 18.0), jit)))), jit)));
+  col = mix(col, vec3(bar), band * uGrid);
+
+  col = mix(col, vec3(hash(gl_FragCoord.xy + uTime)), uStatic * 0.7);
+  gl_FragColor = vec4(col, 1.0);
+}`
+
+// Present pass: show the frame with animated grain on top (grain is not fed back).
+const PRESENT = `${COMMON}
+uniform sampler2D uFrame;
+uniform float uGrain;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec3 col = texture2D(uFrame, uv).rgb;
   col += (hash(gl_FragCoord.xy + fract(uTime * 7.0) * 91.0) - 0.5) * uGrain;
   gl_FragColor = vec4(col, 1.0);
 }`
@@ -119,115 +109,139 @@ export function hsl(h, s, l) {
   return [f(0), f(8), f(4)]
 }
 
-function compile(gl, type, src) {
-  const s = gl.createShader(type)
-  gl.shaderSource(s, src)
-  gl.compileShader(s)
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s))
-  return s
+function program(gl, frag) {
+  const compile = (type, src) => {
+    const s = gl.createShader(type)
+    gl.shaderSource(s, src)
+    gl.compileShader(s)
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s))
+    return s
+  }
+  const prog = gl.createProgram()
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT))
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, frag))
+  gl.linkProgram(prog)
+  const u = new Proxy({}, { get: (cache, name) => (cache[name] ??= gl.getUniformLocation(prog, name)) })
+  return { prog, u }
 }
 
-// Domain-warped fbm noise field (soft ink in paper, with grain) with whole-frame
-// distortions. Each attack event is a "hit": it moves the distortion centre toward
-// its position and briefly spikes every distortion that is above zero.
+// Feedback video synth: each frame is drawn from the previous one (ping-pong
+// framebuffers), then presented with grain. Attacks move the feedback centre.
 export function createField(canvas) {
   const gl = canvas.getContext('webgl', { antialias: false, preserveDrawingBuffer: true })
   if (!gl) return { addImpact() {}, render() {} }
 
-  const prog = gl.createProgram()
-  gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT))
-  gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG))
-  gl.linkProgram(prog)
-  gl.useProgram(prog)
-  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
+  const frame = program(gl, FRAME)
+  const present = program(gl, PRESENT)
+  const quad = gl.createBuffer()
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
-  const loc = gl.getAttribLocation(prog, 'a')
-  gl.enableVertexAttribArray(loc)
-  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)
-
-  const u = {}
-  for (const name of ['uRes', 'uTime', 'uFlow', 'uScale', 'uTurb', 'uDetail', 'uThreshold', 'uSoft', 'uGrain', 'uChar', 'uStretch', 'uSym', 'uBands', 'uPaper', 'uInkA', 'uInkB', 'uTint', 'uCenter', 'uReach', 'uSwirl', 'uPush', 'uRipple', 'uSmear', 'uShatter', 'uPix', 'uTintAmt', 'uInkHit']) {
-    u[name] = gl.getUniformLocation(prog, name)
+  for (const { prog } of [frame, present]) {
+    const loc = gl.getAttribLocation(prog, 'a')
+    gl.enableVertexAttribArray(loc)
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)
   }
 
-  let hit = 0
-  let hitTime = 0.5
-  let hitInk = 0
-  let reach = 0.5
-  const center = [0.5, 0.5]
-  const target = [0.5, 0.5]
+  let targets = []
+  let w = 0
+  let h = 0
+  let cur = 0
+  function makeTargets() {
+    for (const t of targets) {
+      gl.deleteTexture(t.tex)
+      gl.deleteFramebuffer(t.fb)
+    }
+    targets = [0, 1].map(() => {
+      const tex = gl.createTexture()
+      gl.bindTexture(gl.TEXTURE_2D, tex)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      const fb = gl.createFramebuffer()
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb)
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0)
+      return { tex, fb }
+    })
+  }
+
   let time = 0
   const flow = [0, 0]
-  // Render resolution adapts to frame time; the field is soft anyway, so it can go low.
+  const center = [0.5, 0.5]
+  const target = [0.5, 0.5]
+  // Render resolution adapts to frame time; the look is soft, so it can go low.
   let scale = 0.6
   let frameAvg = 1 / 60
 
   return {
-    addImpact(v) {
-      target[0] = v['impact.x']
-      target[1] = v['impact.y']
-      hit = Math.min(1.5, hit + v['impact.hit'] * 0.6)
-      hitTime = 0.05 + v['impact.decay'] * 1.2
-      hitInk = v['impact.ink']
-      reach = 0.08 + v['impact.reach'] ** 1.5 * 1.6
+    addImpact(x, y) {
+      target[0] = x
+      target[1] = y
     },
-    render(v, dt) {
+    render(u, dt) {
       frameAvg += (dt - frameAvg) * 0.05
       if (frameAvg > 1 / 45 && scale > 0.3) scale = Math.max(0.3, scale - 0.05)
       else if (frameAvg < 1 / 58 && scale < 0.75) scale = Math.min(0.75, scale + 0.01)
-      const w = Math.max(1, Math.round(canvas.clientWidth * scale))
-      const h = Math.max(1, Math.round(canvas.clientHeight * scale))
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w
-        canvas.height = h
+      const nw = Math.max(1, Math.round(canvas.clientWidth * scale))
+      const nh = Math.max(1, Math.round(canvas.clientHeight * scale))
+      if (nw !== w || nh !== h) {
+        w = canvas.width = nw
+        h = canvas.height = nh
+        makeTargets()
       }
-      gl.viewport(0, 0, w, h)
 
       time += dt
-      const speed = dt * (0.02 + v['motion.flow'] ** 2 * 1.2)
-      const angle = v['motion.direction'] * Math.PI * 2
-      flow[0] += Math.cos(angle) * speed
-      flow[1] += Math.sin(angle) * speed
-
-      hit *= Math.exp(-dt / hitTime)
-      const follow = 1 - Math.exp(-dt / 0.15)
+      const speed = dt * (0.02 + u.flow ** 2 * 1.2)
+      flow[0] += speed * 0.6
+      flow[1] += speed
+      const follow = 1 - Math.exp(-dt / 0.4)
       center[0] += (target[0] - center[0]) * follow
       center[1] += (target[1] - center[1]) * follow
-      // A hit multiplies each distortion, so knobs at zero stay off.
-      const spike = (x) => Math.min(1, x * (1 + hit * 2))
 
-      const hue = v['color.hue']
-      const sat = v['color.saturation']
-      const paper = v['color.paper']
-      const inkL = 0.75 - paper * 0.4
-      gl.uniform2f(u.uRes, w, h)
-      gl.uniform1f(u.uTime, time)
-      gl.uniform2fv(u.uFlow, flow)
-      gl.uniform1f(u.uScale, 0.8 + v['noise.scale'] * 7)
-      gl.uniform1f(u.uTurb, v['motion.turbulence'])
-      gl.uniform1f(u.uDetail, 1 + v['noise.detail'] * 5)
-      gl.uniform1f(u.uChar, v['noise.character'])
-      gl.uniform1f(u.uStretch, v['noise.stretch'])
-      gl.uniform1f(u.uSym, v['noise.symmetry'])
-      gl.uniform1f(u.uBands, v['texture.bands'])
-      gl.uniform1f(u.uThreshold, 0.7 - v['color.contrast'] * 0.3)
-      gl.uniform1f(u.uSoft, 0.03 + v['texture.softness'] * 0.3)
-      gl.uniform1f(u.uGrain, v['texture.grain'] * 0.3)
-      gl.uniform3fv(u.uPaper, hsl(hue, sat * 0.15, 0.06 + paper * 0.9))
-      gl.uniform3fv(u.uInkA, hsl(hue, sat, inkL))
-      gl.uniform3fv(u.uInkB, hsl(hue + v['color.spread'] * 0.5, sat, inkL + 0.1))
-      gl.uniform3fv(u.uTint, hsl(hue + 0.5, Math.max(sat, 0.6), 0.55))
-      gl.uniform2fv(u.uCenter, center)
-      gl.uniform1f(u.uReach, reach)
-      gl.uniform1f(u.uSwirl, spike(v['distort.swirl']))
-      gl.uniform1f(u.uPush, 0.5 + (v['distort.push'] - 0.5) * (1 + hit * 1.5))
-      gl.uniform1f(u.uRipple, spike(v['distort.ripple']))
-      gl.uniform1f(u.uSmear, spike(v['distort.smear']))
-      gl.uniform1f(u.uShatter, spike(v['distort.shatter']))
-      gl.uniform1f(u.uPix, spike(v['distort.pixelate']))
-      gl.uniform1f(u.uTintAmt, spike(v['distort.tint']))
-      gl.uniform1f(u.uInkHit, hitInk * Math.min(1, hit) * 0.5)
+      const inkL = 0.75 - u.paper * 0.38
+      const read = targets[cur]
+      const write = targets[1 - cur]
+
+      gl.viewport(0, 0, w, h)
+      gl.useProgram(frame.prog)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, write.fb)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, read.tex)
+      const f = frame.u
+      gl.uniform1i(f.uPrev, 0)
+      gl.uniform2f(f.uRes, w, h)
+      gl.uniform1f(f.uTime, time)
+      gl.uniform2fv(f.uFlow, flow)
+      gl.uniform2fv(f.uCenter, center)
+      gl.uniform1f(f.uScale, u.scale)
+      gl.uniform1f(f.uTurb, u.turb)
+      gl.uniform1f(f.uSoft, 0.03 + u.soft * 0.3)
+      gl.uniform1f(f.uThreshold, 0.68 - u.contrast * 0.28)
+      gl.uniform1f(f.uFb, u.fb)
+      gl.uniform1f(f.uZoom, u.zoom)
+      gl.uniform1f(f.uRot, u.rot)
+      gl.uniform1f(f.uWarp, u.warp)
+      gl.uniform1f(f.uMosh, u.mosh)
+      gl.uniform1f(f.uBlock, u.block)
+      gl.uniform1f(f.uGrid, u.grid)
+      gl.uniform1f(f.uRgb, u.rgb)
+      gl.uniform1f(f.uTear, u.tear)
+      gl.uniform1f(f.uStatic, u.static)
+      gl.uniform3fv(f.uPaper, hsl(u.hue, u.sat * 0.25, 0.04 + u.paper * 0.93))
+      gl.uniform3fv(f.uInkA, hsl(u.hue, u.sat, inkL))
+      gl.uniform3fv(f.uInkB, hsl(u.hue + 0.08, u.sat, Math.min(0.85, inkL + 0.12)))
       gl.drawArrays(gl.TRIANGLES, 0, 3)
+
+      gl.useProgram(present.prog)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      gl.bindTexture(gl.TEXTURE_2D, write.tex)
+      gl.uniform1i(present.u.uFrame, 0)
+      gl.uniform2f(present.u.uRes, w, h)
+      gl.uniform1f(present.u.uTime, time)
+      gl.uniform1f(present.u.uGrain, u.grain * 0.3)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+      cur = 1 - cur
     },
   }
 }

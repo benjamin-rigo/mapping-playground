@@ -9,10 +9,11 @@ Companion to `../cyber_attack_sonification` (the reference piece shown in the op
 ## How it works
 
 - **Data:** SANS Internet Storm Center (DShield): top targeted ports, top attacking IPs and the infocon threat level. These are fetched straight from the browser (the ISC API allows CORS) and refreshed every 4 minutes. They are sampled into a stream of about 3 events per second, with occasional port-scan bursts. If the API is unreachable, the bundled `public/snapshot.json` is used.
-- **Sound:** a Tone.js synth, loosely modelled on Ableton Wavetable. Osc 1 morphs its Shape through generated harmonic tables (sine, saw, square, vocal, bell) and adds FM Warp. Osc 2 is a detuned unison layer, and there is Sub & Noise, a morphing LP/BP/HP filter, an Amp env and a Mod env, an FX chain (drive, crush, chorus, delay, reverb) and a chord Drone.
-- **Visual:** a WebGL domain-warped noise field (Field, Color, Texture). Each event lands as an Impact (position, size, strength, ink, decay), and a Distortion module mixes seven local effects into it: swirl, push/pull, ripple, smear, shatter, pixelate and tint.
-- **Modulation matrix:** rows are knobs, and the columns are the six incoming data types (Port, Port popularity, Attacker IP, Attacker volume, Density, Threat level). Click a knob to highlight its row, then drag a cell to set the amount (−100% to +100%). Modulation is bipolar around the knob value. Event-rate knobs get the event's own values. Continuous knobs (Drone, Field, Color, Texture) get smoothed followers, so they glide.
-- **Presets and sharing:** three starting points (Glass rain, Low tide, Static storm). All settings live in the URL hash, so "Copy link" shares an exact patch.
+- **Concept: two worlds, one tension.** *Calm* and *Storm* are two scenes. A Tension fader morphs every sound and visual parameter between them, and the data pushes the fader (an attack fires a Hit envelope).
+- **Engines:** each scene picks a sound engine (Drone, Bells, Texture, Pulse) and a visual engine (Fluid, Tunnel, Mosh, Grid), each played with three macros: Color, Texture and Motion.
+- **Visual:** a feedback video synth (WebGL ping-pong framebuffers) with a pastel fbm source, plus zoom/rotate/self-warp feedback, datamosh blocks, RGB split, tearing, barcode bands and static.
+- **Modulation matrix:** rows are Tension and the six macros. Columns are Hit (attack envelope) and the six data types, which are bipolar around their centre.
+- **Presets and sharing:** three starting points (Pastel to static, Glass and tunnel, Data rain). All settings live in the URL hash, so "Copy link" shares an exact patch.
 
 ## Develop
 

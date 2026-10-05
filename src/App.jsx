@@ -2,17 +2,17 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { Check, Link, Play, Square } from 'lucide-react'
 import { EngineContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
-import { ModuleCard } from '@/components/ModuleCard'
+import { SceneCard } from '@/components/SceneCard'
+import { TensionFader } from '@/components/TensionFader'
 import { RotaryKnob } from '@/components/RotaryKnob'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { createEngine } from '@/engine'
 import { expMap } from '@/engine/synth'
-import { MODULES, PARAM_BY_KEY } from '@/engine/params'
-import { DEFAULTS, PRESETS, ROOTS, SCALES, decodeSettings, encodeSettings } from '@/engine/settings'
+import { TARGET_KEYS } from '@/engine/params'
+import { DEFAULTS, PRESETS, ROOTS, SCALES, decodeSettings, encodeSettings, randomScene } from '@/engine/settings'
 
 const STATUS = {
   idle: { label: 'Stopped', variant: 'outline' },
@@ -78,7 +78,7 @@ export default function App() {
   const [status, setStatus] = useState('idle')
   const [copied, setCopied] = useState(false)
   const [selected, setSelected] = useState(null)
-  const [tab, setTab] = useState('sound')
+  const [preview, setPreview] = useState(null)
   const isDesktop = useIsDesktop()
 
   useEffect(() => {
@@ -103,20 +103,23 @@ export default function App() {
     setPreset('')
     setSettings((s) => ({ ...s, ...patch }))
   }
-  const setKnob = useCallback((v, key) => {
-    setPreset('')
-    setSettings((s) => ({ ...s, knobs: { ...s.knobs, [key]: v } }))
-  }, [])
   const setPatches = (patches) => edit({ patches })
-  const select = useCallback((key) => {
-    setSelected(key)
-    setTab(PARAM_BY_KEY[key].module.group)
-  }, [])
+  const select = useCallback((key) => setSelected(key), [])
+  const setScene = (name, scene) => edit({ scenes: { ...settings.scenes, [name]: scene } })
+  const pickPreview = (p) => {
+    setPreview(p)
+    engine?.setPreview(p)
+  }
+
+  // How far the patches can move each target, for the knobs' modulation arcs.
+  const depth = Object.fromEntries(TARGET_KEYS.map((k) => [k, 0]))
+  for (const x of settings.patches) depth[x.target] += Math.abs(x.amount)
 
   function loadPreset(name) {
     setPreset(name)
     setSelected(null)
     setSettings(structuredClone(PRESETS.find((p) => p.name === name).settings))
+    pickPreview(null)
   }
 
   async function copyLink() {
@@ -125,19 +128,6 @@ export default function App() {
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
-
-  const modules = (group) =>
-    MODULES.filter((m) => m.group === group).map((m) => (
-      <ModuleCard
-        key={m.id}
-        module={m}
-        knobs={settings.knobs}
-        patches={settings.patches}
-        selected={selected}
-        onKnob={setKnob}
-        onSelect={select}
-      />
-    ))
 
   const matrix = (className) => (
     <ModMatrix settings={settings} selected={selected} onSelect={select} onPatches={setPatches} className={className} />
@@ -160,8 +150,8 @@ export default function App() {
   )
 
   const controls = (
-    <div className="h-full space-y-3 overflow-y-auto px-3 py-3 max-md:h-auto max-md:overflow-visible max-md:px-0 max-md:py-0">
-      <section className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-2 rounded-lg border border-border bg-card p-3">
+    <div className="flex h-full flex-col gap-3 overflow-y-auto px-3 py-3 max-md:h-auto max-md:overflow-visible max-md:px-0 max-md:py-0">
+      <section className="order-last grid grid-cols-[1fr_1fr_auto_auto_auto] items-center gap-2 rounded-lg border border-border bg-card p-3">
         <PickField label="Root" value={settings.root} options={ROOTS} onChange={(root) => edit({ root })} />
         <PickField label="Scale" value={settings.scale} options={SCALES} format={cap} onChange={(scale) => edit({ scale })} />
         <RotaryKnob
@@ -173,6 +163,14 @@ export default function App() {
           onChange={(response) => edit({ response })}
         />
         <RotaryKnob
+          label="Hit decay"
+          name="Hit decay"
+          value={settings.hitDecay}
+          defaultValue={0.35}
+          display={`${Math.round(expMap(settings.hitDecay, 50, 3000))}ms`}
+          onChange={(hitDecay) => edit({ hitDecay })}
+        />
+        <RotaryKnob
           label="Master"
           value={settings.master}
           defaultValue={0.8}
@@ -180,18 +178,34 @@ export default function App() {
           onChange={(master) => edit({ master })}
         />
       </section>
-      <Tabs value={tab} onValueChange={setTab} className="gap-3">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="sound">Sound</TabsTrigger>
-          <TabsTrigger value="visual">Visual</TabsTrigger>
-        </TabsList>
-        <TabsContent value="sound" className="space-y-3">
-          {modules('sound')}
-        </TabsContent>
-        <TabsContent value="visual" className="space-y-3">
-          {modules('visual')}
-        </TabsContent>
-      </Tabs>
+      <TensionFader
+        value={settings.tension}
+        onChange={(tension) => edit({ tension })}
+        selected={selected === 'tension'}
+        onSelect={() => select('tension')}
+        preview={preview}
+        onPreview={pickPreview}
+      />
+      <SceneCard
+        title="Calm"
+        tone="text-sky-300"
+        scene={settings.scenes.calm}
+        onChange={(s) => setScene('calm', s)}
+        onRandomize={() => setScene('calm', randomScene())}
+        onSelect={select}
+        selected={selected}
+        depth={depth}
+      />
+      <SceneCard
+        title="Storm"
+        tone="text-orange-300"
+        scene={settings.scenes.storm}
+        onChange={(s) => setScene('storm', s)}
+        onRandomize={() => setScene('storm', randomScene())}
+        onSelect={select}
+        selected={selected}
+        depth={depth}
+      />
     </div>
   )
 
