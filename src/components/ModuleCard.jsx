@@ -1,6 +1,7 @@
+import { memo } from 'react'
 import { RotaryKnob } from '@/components/RotaryKnob'
 
-export function modRange(patches, key) {
+function modRange(patches, key) {
   let neg = 0
   let pos = 0
   for (const x of patches) {
@@ -8,33 +9,34 @@ export function modRange(patches, key) {
     if (x.amount < 0) neg += x.amount
     else pos += x.amount
   }
-  return { neg, pos }
+  return [neg, pos]
 }
 
-export function ModuleCard({ module, settings, selected, onKnob, onSelect, children, title = module.label }) {
+export const ModuleCard = memo(function ModuleCard({ module, knobs, patches, selected, onKnob, onSelect }) {
   return (
     <section className="rounded-lg border border-border bg-card px-3 py-3">
-      <h3 className="mb-3 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{title}</h3>
+      <h3 className="mb-3 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{module.label}</h3>
       <div className="grid grid-cols-4 gap-x-1 gap-y-3">
-        {children}
         {module.params.map((p) => {
           const key = `${module.id}.${p.id}`
-          const patchable = p.patchable !== false
+          const [modNeg, modPos] = modRange(patches, key)
           return (
             <RotaryKnob
               key={key}
+              id={key}
               label={p.label}
               name={`${module.label} ${p.label}`}
-              value={settings.knobs[key]}
+              value={knobs[key]}
               defaultValue={p.value}
-              onChange={(v) => onKnob(key, v)}
-              onSelect={patchable ? () => onSelect(key) : undefined}
+              onChange={onKnob}
+              onSelect={p.patchable !== false ? onSelect : undefined}
               selected={selected === key}
-              mod={modRange(settings.patches, key)}
+              modNeg={modNeg}
+              modPos={modPos}
             />
           )
         })}
       </div>
     </section>
   )
-}
+})

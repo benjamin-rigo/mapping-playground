@@ -7,7 +7,7 @@ const patch = (source, target, amount) => ({ source, target, amount })
 
 const preset = (name, knobs, patches, extra = {}) => ({
   name,
-  settings: { version: 3, knobs: { ...DEFAULT_KNOBS, ...knobs }, patches, root: 'A', scale: 'minor', master: 0.8, ...extra },
+  settings: { version: 3, knobs: { ...DEFAULT_KNOBS, ...knobs }, patches, root: 'A', scale: 'minor', master: 0.8, response: 0.25, ...extra },
 })
 
 export const PRESETS = [
@@ -46,12 +46,12 @@ export const PRESETS = [
       patch('ipVol', 'impact.y', 0.8),
       patch('threat', 'color.hue', -0.4),
     ],
-    { scale: 'dorian', root: 'D' },
+    { scale: 'dorian', root: 'D', response: 0.6 },
   ),
   preset(
     'Static storm',
     {
-      'osc1.shape': 0.4, 'osc1.warp': 0.6, 'osc1.ratio': 0.8, 'sub.noise': 0.35, 'sub.color': 0.1, 'amp.attack': 0, 'amp.decay': 0.15,
+      'osc1.shape': 0.4, 'osc1.warp': 0.6, 'osc1.ratio': 0.8, 'osc1.xmod': 0.35, 'osc2.level': 0.2, 'osc2.shape': 0.9, 'sub.noise': 0.35, 'sub.color': 0.1, 'amp.attack': 0, 'amp.decay': 0.15,
       'amp.sustain': 0, 'amp.release': 0.15, 'filter.res': 0.55, 'filter.env': 0.7, 'filter.morph': 0.5, 'fx.drive': 0.45,
       'fx.crush': 0.4, 'fx.time': 0.15, 'fx.feedback': 0.55, 'fx.delay': 0.35, 'fx.reverb': 0.15, 'drone.level': 0.1,
       'field.turbulence': 0.85, 'field.flow': 0.6, 'field.scale': 0.6, 'color.hue': 0.98, 'color.saturation': 0.9,
@@ -70,7 +70,7 @@ export const PRESETS = [
       patch('density', 'distort.shatter', 0.3),
       patch('portPop', 'distort.tint', 0.5),
     ],
-    { scale: 'chromatic', root: 'E' },
+    { scale: 'chromatic', root: 'E', response: 0 },
   ),
 ]
 
@@ -92,6 +92,7 @@ export function sanitize(input) {
   if (ROOTS.includes(input.root)) out.root = input.root
   if (SCALES.includes(input.scale)) out.scale = input.scale
   if (isNum(input.master, 0, 1)) out.master = input.master
+  if (isNum(input.response, 0, 1)) out.response = input.response
   return out
 }
 

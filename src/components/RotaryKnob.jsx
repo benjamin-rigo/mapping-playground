@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { memo, useRef } from 'react'
 import { cn } from '@/lib/utils'
 
 const SIZE = 44
@@ -15,39 +15,37 @@ function arc(from, to) {
   return `M ${c + R * Math.cos(a0)} ${c + R * Math.sin(a0)} A ${R} ${R} 0 ${large} 1 ${c + R * Math.cos(a1)} ${c + R * Math.sin(a1)}`
 }
 
-// Drag up/down to turn, click to select (highlights its row in the matrix),
+// Drag up/down to turn; touching it selects it (highlights its row in the matrix);
 // double-click to reset. The orange arc shows how far patched data can move it.
-export function RotaryKnob({ label, name, value, defaultValue, onChange, onSelect, selected, mod, display }) {
+export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, defaultValue, onChange, onSelect, selected, modNeg = 0, modPos = 0, display }) {
   const drag = useRef(null)
 
   function onPointerDown(e) {
     e.currentTarget.setPointerCapture(e.pointerId)
-    drag.current = { y: e.clientY, v: value, moved: false }
+    drag.current = { y: e.clientY, v: value }
+    onSelect?.(id)
   }
   function onPointerMove(e) {
     const d = drag.current
     if (!d) return
-    const dy = d.y - e.clientY
-    if (Math.abs(dy) > 2) d.moved = true
-    if (d.moved) onChange(Math.round(clamp01(d.v + dy / (e.shiftKey ? 600 : 150)) * 100) / 100)
+    onChange(Math.round(clamp01(d.v + (d.y - e.clientY) / (e.shiftKey ? 600 : 150)) * 100) / 100, id)
   }
   function onPointerUp() {
-    if (drag.current && !drag.current.moved) onSelect?.()
     drag.current = null
   }
   function onKeyDown(e) {
     const step = { ArrowUp: 0.01, ArrowRight: 0.01, ArrowDown: -0.01, ArrowLeft: -0.01, PageUp: 0.1, PageDown: -0.1 }[e.key]
     if (step) {
       e.preventDefault()
-      onChange(Math.round(clamp01(value + step) * 100) / 100)
+      onChange(Math.round(clamp01(value + step) * 100) / 100, id)
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      onSelect?.()
+      onSelect?.(id)
     }
   }
 
-  const lo = mod ? clamp01(value + mod.neg) : value
-  const hi = mod ? clamp01(value + mod.pos) : value
+  const lo = clamp01(value + modNeg)
+  const hi = clamp01(value + modPos)
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -62,7 +60,8 @@ export function RotaryKnob({ label, name, value, defaultValue, onChange, onSelec
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onDoubleClick={() => defaultValue != null && onChange(defaultValue)}
+        onFocus={() => onSelect?.(id)}
+        onDoubleClick={() => defaultValue != null && onChange(defaultValue, id)}
         onKeyDown={onKeyDown}
         className={cn(
           'cursor-ns-resize touch-none rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
@@ -89,4 +88,4 @@ export function RotaryKnob({ label, name, value, defaultValue, onChange, onSelec
       <span className="font-mono text-[10px] leading-none tabular-nums text-muted-foreground/80">{display ?? value.toFixed(2)}</span>
     </div>
   )
-}
+})

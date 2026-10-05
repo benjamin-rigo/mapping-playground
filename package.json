@@ -19,6 +19,7 @@
     "radix-ui": "^1.6.7",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-resizable-panels": "^4.14.2",
     "shadcn": "^4.21.1",
     "tailwindcss": "^4.3.3",
     "tone": "^15.1.22",

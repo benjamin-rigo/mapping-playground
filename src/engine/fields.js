@@ -25,10 +25,10 @@ export function createSources() {
     onEvent(fields) {
       Object.assign(latest, fields)
     },
-    tick(dt, { density, threat }) {
+    tick(dt, { density, threat, tau }) {
       latest.density = clamp01(density / 30)
       latest.threat = threat
-      const k = 1 - Math.exp(-dt / 0.8)
+      const k = 1 - Math.exp(-dt / tau)
       for (const key in latest) smooth[key] += (latest[key] - smooth[key]) * k
     },
   }

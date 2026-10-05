@@ -1,5 +1,4 @@
 const MAX_IMPACTS = 12
-const RES_SCALE = 0.6
 
 const VERT = `attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }`
 
@@ -124,6 +123,9 @@ export function createField(canvas) {
   const inkData = new Float32Array(MAX_IMPACTS)
   let time = 0
   let flowT = 0
+  // Render resolution adapts to frame time; the field is soft anyway, so it can go low.
+  let scale = 0.6
+  let frameAvg = 1 / 60
 
   return {
     addImpact(v) {
@@ -142,9 +144,11 @@ export function createField(canvas) {
       if (impacts.length > MAX_IMPACTS) impacts.shift()
     },
     render(v, dt) {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2) * RES_SCALE
-      const w = Math.max(1, Math.round(canvas.clientWidth * dpr))
-      const h = Math.max(1, Math.round(canvas.clientHeight * dpr))
+      frameAvg += (dt - frameAvg) * 0.05
+      if (frameAvg > 1 / 45 && scale > 0.3) scale = Math.max(0.3, scale - 0.05)
+      else if (frameAvg < 1 / 58 && scale < 0.75) scale = Math.min(0.75, scale + 0.01)
+      const w = Math.max(1, Math.round(canvas.clientWidth * scale))
+      const h = Math.max(1, Math.round(canvas.clientHeight * scale))
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w
         canvas.height = h

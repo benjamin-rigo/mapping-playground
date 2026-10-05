@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Check, Link, Play, Square } from 'lucide-react'
 import { SourcesContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
@@ -6,9 +6,11 @@ import { ModuleCard } from '@/components/ModuleCard'
 import { RotaryKnob } from '@/components/RotaryKnob'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { createEngine } from '@/engine'
+import { expMap } from '@/engine/synth'
 import { MODULES, PARAM_BY_KEY } from '@/engine/params'
 import { DEFAULTS, PRESETS, ROOTS, SCALES, decodeSettings, encodeSettings } from '@/engine/settings'
 
@@ -24,6 +26,30 @@ const cap = (s) => s[0].toUpperCase() + s.slice(1)
 function initialSettings() {
   const match = location.hash.match(/s=([\w-]+)/)
   return (match && decodeSettings(match[1])) || structuredClone(DEFAULTS)
+}
+
+const desktopQuery = '(min-width: 768px)'
+function useIsDesktop() {
+  return useSyncExternalStore(
+    (cb) => {
+      const mq = matchMedia(desktopQuery)
+      mq.addEventListener('change', cb)
+      return () => mq.removeEventListener('change', cb)
+    },
+    () => matchMedia(desktopQuery).matches,
+  )
+}
+
+// Subscribes on its own so incoming events don't re-render the whole app.
+function EventLog({ engine }) {
+  const [event, setEvent] = useState(null)
+  useEffect(() => engine?.subscribe(setEvent), [engine])
+  if (!event) return null
+  return (
+    <p className="pointer-events-none absolute bottom-3 left-3 rounded bg-white/70 px-1.5 py-0.5 font-mono text-[11px] text-neutral-900">
+      {event.burst ? 'scan' : 'hit'} {event.ip} → :{event.port}
+    </p>
+  )
 }
 
 function PickField({ label, value, options, onChange, format = (o) => o }) {
@@ -50,21 +76,21 @@ export default function App() {
   const [settings, setSettings] = useState(initialSettings)
   const [preset, setPreset] = useState('')
   const [status, setStatus] = useState('idle')
-  const [lastEvent, setLastEvent] = useState(null)
   const [copied, setCopied] = useState(false)
   const [selected, setSelected] = useState(null)
   const [tab, setTab] = useState('sound')
+  const isDesktop = useIsDesktop()
 
   useEffect(() => {
     const e = createEngine({
       canvas: canvasRef.current,
       snapshotUrl: `${import.meta.env.BASE_URL}snapshot.json`,
-      onEvent: setLastEvent,
       onStatus: setStatus,
     })
     setEngine(e)
     return () => e.destroy()
-  }, [])
+    // the canvas is a different element in the mobile and desktop layouts
+  }, [isDesktop])
 
   useEffect(() => {
     engine?.setSettings(settings)
@@ -77,12 +103,15 @@ export default function App() {
     setPreset('')
     setSettings((s) => ({ ...s, ...patch }))
   }
-  const setKnob = (key, v) => edit({ knobs: { ...settings.knobs, [key]: v } })
+  const setKnob = useCallback((v, key) => {
+    setPreset('')
+    setSettings((s) => ({ ...s, knobs: { ...s.knobs, [key]: v } }))
+  }, [])
   const setPatches = (patches) => edit({ patches })
-  const select = (key) => {
+  const select = useCallback((key) => {
     setSelected(key)
     setTab(PARAM_BY_KEY[key].module.group)
-  }
+  }, [])
 
   function loadPreset(name) {
     setPreset(name)
@@ -99,11 +128,71 @@ export default function App() {
 
   const modules = (group) =>
     MODULES.filter((m) => m.group === group).map((m) => (
-      <ModuleCard key={m.id} module={m} settings={settings} selected={selected} onKnob={setKnob} onSelect={select} />
+      <ModuleCard
+        key={m.id}
+        module={m}
+        knobs={settings.knobs}
+        patches={settings.patches}
+        selected={selected}
+        onKnob={setKnob}
+        onSelect={select}
+      />
     ))
 
   const matrix = (className) => (
     <ModMatrix settings={settings} selected={selected} onSelect={select} onPatches={setPatches} className={className} />
+  )
+
+  const stage = (
+    <div className="relative size-full">
+      <canvas ref={canvasRef} className="block size-full" aria-label="Live visualization of attack events" />
+      {!running && (
+        <button
+          type="button"
+          onClick={() => engine?.start()}
+          className="absolute inset-0 flex items-center justify-center font-mono text-xs tracking-widest text-neutral-900 uppercase"
+        >
+          Press start to listen
+        </button>
+      )}
+      {running && <EventLog engine={engine} />}
+    </div>
+  )
+
+  const controls = (
+    <div className="h-full space-y-3 overflow-y-auto px-3 py-3 max-md:h-auto max-md:overflow-visible max-md:px-0 max-md:py-0">
+      <section className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-2 rounded-lg border border-border bg-card p-3">
+        <PickField label="Root" value={settings.root} options={ROOTS} onChange={(root) => edit({ root })} />
+        <PickField label="Scale" value={settings.scale} options={SCALES} format={cap} onChange={(scale) => edit({ scale })} />
+        <RotaryKnob
+          label="Response"
+          name="Response time"
+          value={settings.response}
+          defaultValue={0.25}
+          display={`${Math.round(expMap(settings.response, 10, 3000))}ms`}
+          onChange={(response) => edit({ response })}
+        />
+        <RotaryKnob
+          label="Master"
+          value={settings.master}
+          defaultValue={0.8}
+          display={`${Math.round(settings.master * 100)}%`}
+          onChange={(master) => edit({ master })}
+        />
+      </section>
+      <Tabs value={tab} onValueChange={setTab} className="gap-3">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="sound">Sound</TabsTrigger>
+          <TabsTrigger value="visual">Visual</TabsTrigger>
+        </TabsList>
+        <TabsContent value="sound" className="space-y-3">
+          {modules('sound')}
+        </TabsContent>
+        <TabsContent value="visual" className="space-y-3">
+          {modules('visual')}
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 
   return (
@@ -134,55 +223,33 @@ export default function App() {
           </Button>
         </header>
 
-        <main className="flex min-h-0 flex-1 flex-col md:flex-row">
-          <div className="flex shrink-0 flex-col md:min-w-0 md:flex-1">
-            <div className="relative h-[40dvh] md:h-auto md:min-h-0 md:flex-1">
-              <canvas ref={canvasRef} className="block size-full" aria-label="Live visualization of attack events" />
-              {!running && (
-                <button
-                  type="button"
-                  onClick={() => engine?.start()}
-                  className="absolute inset-0 flex items-center justify-center font-mono text-xs tracking-widest text-neutral-900 uppercase"
-                >
-                  Press start to listen
-                </button>
-              )}
-              {lastEvent && running && (
-                <p className="pointer-events-none absolute bottom-3 left-3 rounded bg-white/70 px-1.5 py-0.5 font-mono text-[11px] text-neutral-900">
-                  {lastEvent.burst ? 'scan' : 'hit'} {lastEvent.ip} → :{lastEvent.port}
-                </p>
-              )}
+        {isDesktop ? (
+          <ResizablePanelGroup id="main" orientation="horizontal" className="min-h-0 flex-1">
+            <ResizablePanel id="stage" defaultSize="70%" minSize="35%">
+              <ResizablePanelGroup id="stage-split" orientation="vertical">
+                <ResizablePanel id="canvas" defaultSize="62%" minSize="20%">
+                  {stage}
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel id="matrix" defaultSize="38%" minSize="12%">
+                  {matrix('h-full px-3 pb-2')}
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel id="controls" defaultSize="30%" minSize={300}>
+              {controls}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <main className="flex min-h-0 flex-1 flex-col">
+            <div className="h-[40dvh] shrink-0">{stage}</div>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
+              {matrix('max-h-[45dvh] rounded-lg border border-border px-2 pb-2')}
+              {controls}
             </div>
-            {matrix('hidden max-h-[38%] border-t border-border px-3 pb-2 md:block')}
-          </div>
-
-          <aside className="min-h-0 flex-1 space-y-3 overflow-y-auto border-border px-3 py-3 md:w-[400px] md:flex-none md:border-l">
-            {matrix('max-h-[45dvh] rounded-lg border border-border px-2 pb-2 md:hidden')}
-            <section className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 rounded-lg border border-border bg-card p-3">
-              <PickField label="Root" value={settings.root} options={ROOTS} onChange={(root) => edit({ root })} />
-              <PickField label="Scale" value={settings.scale} options={SCALES} format={cap} onChange={(scale) => edit({ scale })} />
-              <RotaryKnob
-                label="Master"
-                value={settings.master}
-                defaultValue={0.8}
-                display={`${Math.round(settings.master * 100)}%`}
-                onChange={(master) => edit({ master })}
-              />
-            </section>
-            <Tabs value={tab} onValueChange={setTab} className="gap-3">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="sound">Sound</TabsTrigger>
-                <TabsTrigger value="visual">Visual</TabsTrigger>
-              </TabsList>
-              <TabsContent value="sound" className="space-y-3">
-                {modules('sound')}
-              </TabsContent>
-              <TabsContent value="visual" className="space-y-3">
-                {modules('visual')}
-              </TabsContent>
-            </Tabs>
-          </aside>
-        </main>
+          </main>
+        )}
       </div>
     </SourcesContext.Provider>
   )

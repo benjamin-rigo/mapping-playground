@@ -7,11 +7,11 @@ const p = (id, label, value, extra = {}) => ({ id, label, value, ...extra })
 export const MODULES = [
   {
     id: 'osc1', group: 'sound', label: 'Osc 1', kind: 'event',
-    params: [p('shape', 'Shape', 0.15), p('bright', 'Bright', 0.55), p('warp', 'Warp', 0.3), p('ratio', 'Ratio', 0.45), p('level', 'Level', 0.8)],
+    params: [p('shape', 'Shape', 0.15), p('bright', 'Bright', 0.55), p('warp', 'Warp', 0.3), p('ratio', 'Ratio', 0.45), p('xmod', '2 → 1 FM', 0), p('level', 'Level', 0.8)],
   },
   {
     id: 'osc2', group: 'sound', label: 'Osc 2', kind: 'event',
-    params: [p('shape', 'Shape', 0.66), p('spread', 'Spread', 0.3), p('octave', 'Octave', 0.5), p('level', 'Level', 0)],
+    params: [p('shape', 'Shape', 0.66), p('spread', 'Spread', 0.3), p('octave', 'Octave', 0.5), p('xmod', '1 → 2 FM', 0), p('level', 'Level', 0)],
   },
   {
     id: 'sub', group: 'sound', label: 'Sub & Noise', kind: 'event',

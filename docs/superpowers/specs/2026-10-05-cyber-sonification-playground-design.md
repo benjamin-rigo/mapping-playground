@@ -166,3 +166,11 @@ The first build felt rigid: fixed voices (Pluck, Bell…) and a halftone dot can
 - **Knobs** are rotary (drag vertically, Shift for fine control, double-click to reset, arrow keys). An orange arc shows the range the patched data can push the knob through.
 - **Synth** (Tone.js again): Osc 1 is a PolySynth(FMSynth) with a custom-partials carrier. Shape morphs through five generated harmonic tables, Bright tilts the spectrum, and Warp/Ratio set the FM index and harmonicity. Osc 2 is a PolySynth of fat oscillators (shape, spread, octave, level). Sub is a sine an octave down, and Noise is brown, pink or white. They feed pan → Filter (LP/BP/HP by Morph, with a FrequencyEnvelope driven by the Mod env) → Distortion → BitCrusher → Chorus → FeedbackDelay → Reverb → Limiter. The Mod env also shapes the FM index (To warp). The Drone is a fat-saw PolySynth chord loop through an LFO-swept lowpass.
 - **Settings** version 3. Older links fall back to the defaults.
+
+## Revision 5 (2026-10-05): responsiveness, layout, cross-mod
+
+- **Response** (global knob, 10 ms to 3 s, exponential, default about 40 ms) sets the time constant of the smoothed sources that drive continuous targets, and the drone's ramp time. Moving a knob also updates the shared sound chain (filter, drive, crush, chorus, delay, reverb) at once, instead of waiting for the next event.
+- **Voices** are native Web Audio graphs built per event inside Tone's context. Osc 1 uses a cached PeriodicWave per Shape and Bright. FM is shaped by the Mod env. Osc 2 is a 3-oscillator detuned stack. Cross-mod runs both ways: "2 → 1 FM" sends Osc 2 into Osc 1's frequency, and "1 → 2 FM" sends Osc 1 into Osc 2 through a 128-sample delay, which keeps the feedback cycle from being muted. Each voice has its own pan and amp envelope, and at most 24 run at once. This replaces PolySynth.set() on every event.
+- **Layout:** on desktop, resizable panels (stage | controls, and canvas over matrix) with px and % constraints. On mobile, a stack. The engine is rebuilt if the layout switches, because the canvas element changes.
+- **Performance:** incoming events no longer re-render the app (EventLog subscribes on its own). Module cards and knobs are memoized, with stable callbacks. The shader resolution adapts between 0.3× and 0.75× CSS px to hold 60 fps.
+- **Knobs** select on pointer-down or focus.

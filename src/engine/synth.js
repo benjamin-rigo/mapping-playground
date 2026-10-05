@@ -9,8 +9,7 @@ const SCALES = {
   chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
 }
 const PARTIALS = 24
-const FAT = ['fatsine', 'fattriangle', 'fatsawtooth', 'fatsquare']
-const NOISES = ['brown', 'pink', 'white']
+const MAX_VOICES = 24
 
 export const expMap = (v, lo, hi) => lo * (hi / lo) ** v
 const mtof = (m) => 440 * 2 ** ((m - 69) / 12)
@@ -55,19 +54,34 @@ function droneChord(step, root, scale) {
   return [n(0), n(0) + 12, n(2) + 12, n(4) + 12].map(mtof)
 }
 
-// Event voice: Osc 1 (morphing harmonic table + FM warp), Osc 2 (detuned unison),
-// sub and noise -> pan -> morphing filter with envelope -> drive -> crush -> chorus
-// -> delay -> reverb. A chord drone runs underneath.
+// Each event builds one short-lived Web Audio voice: Osc 1 (wavetable-like harmonic
+// morph + FM), Osc 2 (detuned stack), cross-modulation both ways, sub and noise,
+// each with its own envelope and pan. Voices feed a shared Tone.js chain: morphing
+// filter with envelope -> drive -> crush -> chorus -> delay -> reverb. A chord drone
+// runs underneath.
 export function createSynth() {
   let n = null
+  let raw = null
   let settings = null
   let ready = false
-  let lastMono = 0
-  let lastPartials = ''
+  let active = 0
   let reverbSize = -1
   let chordStep = 0
+  const waves = new Map()
+
+  function wave(shape, bright) {
+    const key = `${shape.toFixed(2)}:${bright.toFixed(2)}`
+    if (!waves.has(key)) {
+      const partials = shapePartials(shape, bright)
+      const imag = new Float32Array(partials.length + 1)
+      imag.set(partials, 1)
+      waves.set(key, raw.createPeriodicWave(new Float32Array(imag.length), imag))
+    }
+    return waves.get(key)
+  }
 
   function build() {
+    raw = Tone.getContext().rawContext
     const master = new Tone.Volume(-8).toDestination()
     const limiter = new Tone.Limiter(-1).connect(master)
     const reverb = new Tone.Reverb({ decay: 4, wet: 0.4 }).connect(limiter)
@@ -78,21 +92,11 @@ export function createSynth() {
     const filter = new Tone.Filter({ frequency: 2000, type: 'lowpass', rolloff: -24 }).connect(drive)
     const filterEnv = new Tone.FrequencyEnvelope({ baseFrequency: 2000, octaves: 2, attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 })
     filterEnv.connect(filter.frequency)
-    const panner = new Tone.Panner(0).connect(filter)
+    const input = new Tone.Gain(1).connect(filter)
 
-    const osc1 = new Tone.PolySynth(Tone.FMSynth, {
-      maxPolyphony: 12,
-      oscillator: { type: 'custom', partials: shapePartials(0.15, 0.55) },
-      modulation: { type: 'sine' },
-      volume: -10,
-    }).connect(panner)
-    const osc2 = new Tone.PolySynth(Tone.Synth, {
-      maxPolyphony: 12,
-      oscillator: { type: 'fatsawtooth', count: 3, spread: 20 },
-      volume: -14,
-    }).connect(panner)
-    const sub = new Tone.PolySynth(Tone.Synth, { maxPolyphony: 8, oscillator: { type: 'sine' }, volume: -8 }).connect(panner)
-    const noise = new Tone.NoiseSynth({ noise: { type: 'pink' }, volume: -14 }).connect(panner)
+    const noise = raw.createBuffer(1, raw.sampleRate * 2, raw.sampleRate)
+    const nd = noise.getChannelData(0)
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1
 
     const droneFilter = new Tone.Filter({ frequency: 600, type: 'lowpass' })
     const droneGain = new Tone.Gain(0).connect(reverb)
@@ -108,10 +112,129 @@ export function createSynth() {
       drone.triggerAttackRelease(droneChord(chordStep++, settings.root, settings.scale), 9, time, 0.5)
     }, 10)
 
-    n = { master, reverb, delay, chorus, crusher, drive, filter, filterEnv, panner, osc1, osc2, sub, noise, droneFilter, droneGain, droneLfo, loop }
+    n = { master, reverb, delay, chorus, crusher, drive, filter, filterEnv, input, noise, droneFilter, droneGain, droneLfo, loop }
   }
 
-  const ramp = (param, value) => param.rampTo(value, 0.05)
+  const ramp = (param, value, time = 0.03) => param.rampTo(value, time)
+
+  // Shared chain: applied on every event and immediately when a knob moves.
+  function applyShared(v) {
+    n.filter.type = v['filter.morph'] < 0.34 ? 'lowpass' : v['filter.morph'] < 0.67 ? 'bandpass' : 'highpass'
+    n.filter.Q.value = expMap(v['filter.res'], 0.5, 18)
+    n.filterEnv.baseFrequency = expMap(v['filter.cutoff'], 60, 14000)
+    n.filterEnv.octaves = v['filter.env'] * 6
+    n.filterEnv.attack = expMap(v['mod.attack'], 0.001, 2)
+    n.filterEnv.decay = expMap(v['mod.decay'], 0.02, 3)
+    if (Math.abs(n.drive.distortion - v['fx.drive']) > 0.01) n.drive.distortion = v['fx.drive']
+    ramp(n.drive.wet, Math.sqrt(v['fx.drive']))
+    n.crusher.bits.value = 16 - v['fx.crush'] * 13
+    ramp(n.crusher.wet, v['fx.crush'] > 0.01 ? 1 : 0)
+    ramp(n.chorus.wet, v['fx.chorus'])
+    ramp(n.delay.wet, v['fx.delay'] * 0.7)
+    n.delay.delayTime.rampTo(expMap(v['fx.time'], 0.05, 1.2), 0.1)
+    ramp(n.delay.feedback, v['fx.feedback'] * 0.9)
+    ramp(n.reverb.wet, v['fx.reverb'])
+  }
+
+  function voice(v, t) {
+    const ctx = raw
+    const midi = noteFor(v['voice.note'], v['voice.range'], settings.root, settings.scale)
+    const f1 = mtof(midi)
+    const f2 = mtof(midi + Math.round(v['osc2.octave'] * 2 - 1) * 12)
+    const a = expMap(v['amp.attack'], 0.001, 2)
+    const d = expMap(v['amp.decay'], 0.02, 3)
+    const r = expMap(v['amp.release'], 0.02, 5)
+    const ma = expMap(v['mod.attack'], 0.001, 2)
+    const md = expMap(v['mod.decay'], 0.02, 3)
+    const gateEnd = t + a + d
+    const end = gateEnd + r * 1.5 + 0.05
+    const level = v['voice.level'] ** 2
+
+    const out = ctx.createGain()
+    out.gain.setValueAtTime(0, t)
+    out.gain.linearRampToValueAtTime(level, t + a)
+    out.gain.setTargetAtTime(level * v['amp.sustain'], t + a, d / 3)
+    out.gain.setTargetAtTime(0, gateEnd, r / 4)
+    const pan = ctx.createStereoPanner()
+    pan.pan.value = v['voice.pan'] * 2 - 1
+    out.connect(pan)
+    Tone.connect(pan, n.input)
+
+    const sources = []
+    const gain = (value) => {
+      const g = ctx.createGain()
+      g.gain.value = value
+      return g
+    }
+    const osc = (type, freq) => {
+      const o = ctx.createOscillator()
+      if (type) o.type = type
+      o.frequency.value = freq
+      sources.push(o)
+      return o
+    }
+
+    const o1 = osc(null, f1)
+    o1.setPeriodicWave(wave(v['osc1.shape'], v['osc1.bright']))
+    o1.connect(gain(v['osc1.level'] * 0.5)).connect(out)
+
+    // FM warp, shaped by the mod envelope
+    if (v['osc1.warp'] > 0.005) {
+      const m = osc('sine', f1 * expMap(v['osc1.ratio'], 0.5, 8))
+      const peak = f1 * v['osc1.warp'] * 8
+      const depth = gain(0)
+      depth.gain.setValueAtTime(0, t)
+      depth.gain.linearRampToValueAtTime(peak, t + ma)
+      depth.gain.setTargetAtTime(peak * (1 - v['mod.amount']), t + ma, md / 3)
+      m.connect(depth).connect(o1.frequency)
+    }
+
+    const useOsc2 = v['osc2.level'] > 0.005 || v['osc1.xmod'] > 0.005
+    if (useOsc2) {
+      const type = ['sine', 'triangle', 'sawtooth', 'square'][Math.min(3, Math.floor(v['osc2.shape'] * 4))]
+      const cents = v['osc2.spread'] * 50
+      const sum = gain(1 / 3)
+      const stack = [-cents, 0, cents].map((det) => {
+        const o = osc(type, f2)
+        o.detune.value = det
+        o.connect(sum)
+        return o
+      })
+      sum.connect(gain(v['osc2.level'] * 0.5)).connect(out)
+      // Osc 2 -> Osc 1 frequency
+      if (v['osc1.xmod'] > 0.005) sum.connect(gain(f1 * v['osc1.xmod'] * 6)).connect(o1.frequency)
+      // Osc 1 -> Osc 2 frequency; the delay breaks the cycle Web Audio would otherwise mute
+      if (v['osc2.xmod'] > 0.005) {
+        const dl = ctx.createDelay(0.01)
+        dl.delayTime.value = 128 / ctx.sampleRate
+        const x = gain(f2 * v['osc2.xmod'] * 6)
+        o1.connect(dl).connect(x)
+        for (const o of stack) x.connect(o.frequency)
+      }
+    }
+
+    if (v['sub.sub'] > 0.005) osc('sine', f1 / 2).connect(gain(v['sub.sub'] * 0.6)).connect(out)
+
+    if (v['sub.noise'] > 0.005) {
+      const src = ctx.createBufferSource()
+      src.buffer = n.noise
+      src.loop = true
+      sources.push(src)
+      const tone = ctx.createBiquadFilter()
+      tone.frequency.value = expMap(v['sub.color'], 300, 18000)
+      src.connect(tone).connect(gain(v['sub.noise'] * 0.5)).connect(out)
+    }
+
+    active++
+    sources[0].onended = () => {
+      active--
+      pan.disconnect()
+    }
+    for (const s of sources) {
+      s.start(t, s.buffer ? Math.random() : undefined)
+      s.stop(end)
+    }
+  }
 
   return {
     get ready() {
@@ -121,7 +244,7 @@ export function createSynth() {
       await Tone.start()
       if (!n) build()
       ready = true
-      this.setSettings(s)
+      this.setSettings(s, s.knobs)
       n.loop.start(0)
       Tone.getTransport().start()
     },
@@ -130,10 +253,10 @@ export function createSynth() {
       ready = false
       Tone.getTransport().stop()
       n.loop.stop()
-      for (const v of [n.osc1, n.osc2, n.sub]) v.releaseAll()
       n.droneGain.gain.rampTo(0, 0.5)
     },
-    setSettings(s) {
+    // values: knobs with event patches applied to the latest data
+    setSettings(s, values) {
       settings = s
       if (!ready) return
       ramp(n.master.volume, s.master > 0 ? Tone.gainToDb(s.master) - 8 : -Infinity)
@@ -142,82 +265,22 @@ export function createSynth() {
         reverbSize = size
         n.reverb.decay = expMap(size, 0.5, 10)
       }
+      applyShared(values)
     },
-    setContinuous(v) {
+    setContinuous(v, tau) {
       if (!ready) return
       const cutoff = expMap(v['drone.tone'], 80, 6000)
-      n.droneGain.gain.rampTo(v['drone.level'] ** 2 * 1.2, 0.2)
+      n.droneGain.gain.rampTo(v['drone.level'] ** 2 * 1.2, tau)
       n.droneLfo.min = cutoff * (1 - v['drone.motion'] * 0.7)
       n.droneLfo.max = cutoff * (1 + v['drone.motion'] * 1.5)
       n.droneLfo.frequency.value = 0.04 + v['drone.motion'] * 0.4
     },
     play(v) {
-      if (!ready || Math.random() > v['voice.chance']) return
-      const t = Tone.now() + 0.03
-      const midi = noteFor(v['voice.note'], v['voice.range'], settings.root, settings.scale)
-      const a = expMap(v['amp.attack'], 0.001, 2)
-      const d = expMap(v['amp.decay'], 0.02, 3)
-      const r = expMap(v['amp.release'], 0.02, 5)
-      const gate = a + d
-      const envelope = { attack: a, decay: d, sustain: v['amp.sustain'], release: r }
-      const vel = v['voice.level']
-
-      // shared chain, set per event
-      ramp(n.panner.pan, v['voice.pan'] * 2 - 1)
-      const cutoff = expMap(v['filter.cutoff'], 60, 14000)
-      n.filter.type = v['filter.morph'] < 0.34 ? 'lowpass' : v['filter.morph'] < 0.67 ? 'bandpass' : 'highpass'
-      n.filter.Q.value = expMap(v['filter.res'], 0.5, 18)
-      n.filterEnv.baseFrequency = cutoff
-      n.filterEnv.octaves = v['filter.env'] * 6
-      n.filterEnv.attack = expMap(v['mod.attack'], 0.001, 2)
-      n.filterEnv.decay = expMap(v['mod.decay'], 0.02, 3)
-      n.filterEnv.triggerAttackRelease(gate, t)
-      n.drive.distortion = v['fx.drive']
-      ramp(n.drive.wet, Math.sqrt(v['fx.drive']))
-      n.crusher.bits.value = 16 - v['fx.crush'] * 13
-      ramp(n.crusher.wet, v['fx.crush'] > 0.01 ? 1 : 0)
-      ramp(n.chorus.wet, v['fx.chorus'])
-      ramp(n.delay.wet, v['fx.delay'] * 0.7)
-      n.delay.delayTime.rampTo(expMap(v['fx.time'], 0.05, 1.2), 0.1)
-      ramp(n.delay.feedback, v['fx.feedback'] * 0.9)
-      ramp(n.reverb.wet, v['fx.reverb'])
-
-      const partials = shapePartials(v['osc1.shape'], v['osc1.bright'])
-      const key = partials.join()
-      n.osc1.set({
-        ...(key !== lastPartials && { oscillator: { partials } }),
-        harmonicity: expMap(v['osc1.ratio'], 0.5, 8),
-        modulationIndex: v['osc1.warp'] * 20,
-        envelope,
-        modulationEnvelope: {
-          attack: expMap(v['mod.attack'], 0.001, 2),
-          decay: expMap(v['mod.decay'], 0.02, 3),
-          sustain: 1 - v['mod.amount'],
-          release: r,
-        },
-      })
-      lastPartials = key
-      if (v['osc1.level'] > 0.01) n.osc1.triggerAttackRelease(mtof(midi), gate, t, vel * v['osc1.level'])
-
-      if (v['osc2.level'] > 0.01) {
-        n.osc2.set({
-          oscillator: { type: FAT[Math.min(3, Math.floor(v['osc2.shape'] * 4))], spread: v['osc2.spread'] * 60 },
-          envelope,
-        })
-        const oct = Math.round(v['osc2.octave'] * 2 - 1) * 12
-        n.osc2.triggerAttackRelease(mtof(midi + oct), gate, t, vel * v['osc2.level'])
-      }
-      if (v['sub.sub'] > 0.01) {
-        n.sub.set({ envelope })
-        n.sub.triggerAttackRelease(mtof(midi - 12), gate, t, vel * v['sub.sub'])
-      }
-      if (v['sub.noise'] > 0.01) {
-        const tm = Math.max(t, lastMono + 0.01)
-        lastMono = tm
-        n.noise.noise.type = NOISES[Math.min(2, Math.floor(v['sub.color'] * 3))]
-        n.noise.envelope.set({ attack: a, decay: d, sustain: v['amp.sustain'], release: r })
-        n.noise.triggerAttackRelease(gate, tm, vel * v['sub.noise'])
-      }
+      if (!ready || active >= MAX_VOICES || Math.random() > v['voice.chance']) return
+      const t = raw.currentTime + 0.02
+      applyShared(v)
+      n.filterEnv.triggerAttackRelease(expMap(v['amp.attack'], 0.001, 2) + expMap(v['amp.decay'], 0.02, 3), Tone.now() + 0.02)
+      voice(v, t)
     },
   }
 }

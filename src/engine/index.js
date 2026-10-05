@@ -4,12 +4,12 @@ import { loadDataset } from './isc.js'
 import { applyPatches } from './params.js'
 import { createSampler } from './sampler.js'
 import { DEFAULTS } from './settings.js'
-import { createSynth } from './synth.js'
+import { createSynth, expMap } from './synth.js'
 
 const REFRESH_MS = 4 * 60 * 1000
 const DENSITY_WINDOW_MS = 5000
 
-export function createEngine({ canvas, snapshotUrl, onEvent, onStatus }) {
+export function createEngine({ canvas, snapshotUrl, onStatus }) {
   const field = createField(canvas)
   const synth = createSynth()
   const sources = createSources()
@@ -21,6 +21,8 @@ export function createEngine({ canvas, snapshotUrl, onEvent, onStatus }) {
   let last = performance.now()
   let audioClock = 0
   const recent = []
+  const listeners = new Set()
+  const tau = () => expMap(settings.response, 0.01, 3)
 
   const sampler = createSampler({
     emit(event) {
@@ -29,7 +31,7 @@ export function createEngine({ canvas, snapshotUrl, onEvent, onStatus }) {
       const values = applyPatches(settings.knobs, settings.patches, sources.latest, 'event')
       synth.play(values)
       field.addImpact(values)
-      onEvent?.(event)
+      for (const fn of listeners) fn(event)
     },
   })
 
@@ -40,13 +42,14 @@ export function createEngine({ canvas, snapshotUrl, onEvent, onStatus }) {
     sources.tick(dt, {
       density: recent.length,
       threat: running && data ? data.threat : 0,
+      tau: tau(),
     })
     const values = applyPatches(settings.knobs, settings.patches, sources.smooth, 'continuous')
     field.render(values, dt)
     audioClock += dt
     if (audioClock > 0.05) {
       audioClock = 0
-      synth.setContinuous(values)
+      synth.setContinuous(values, tau())
     }
     raf = requestAnimationFrame(frame)
   }
@@ -79,7 +82,11 @@ export function createEngine({ canvas, snapshotUrl, onEvent, onStatus }) {
     },
     setSettings(s) {
       settings = s
-      synth.setSettings(s)
+      synth.setSettings(s, applyPatches(s.knobs, s.patches, sources.latest, 'event'))
+    },
+    subscribe(fn) {
+      listeners.add(fn)
+      return () => listeners.delete(fn)
     },
     destroy() {
       this.stop()

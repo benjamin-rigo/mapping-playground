@@ -28,11 +28,11 @@ describe('sources', () => {
   it('smooths toward the latest values and clamps density', () => {
     const s = createSources()
     s.onEvent({ port: 1 })
-    s.tick(0.1, { density: 90, threat: 0.5 })
+    s.tick(0.1, { density: 90, threat: 0.5, tau: 0.8 })
     expect(s.latest.density).toBe(1)
     expect(s.smooth.port).toBeGreaterThan(0)
     expect(s.smooth.port).toBeLessThan(0.2)
-    for (let i = 0; i < 100; i++) s.tick(0.1, { density: 0, threat: 0.5 })
+    for (let i = 0; i < 100; i++) s.tick(0.1, { density: 0, threat: 0.5, tau: 0.8 })
     expect(s.smooth.port).toBeCloseTo(1)
     expect(s.smooth.threat).toBeCloseTo(0.5)
   })
