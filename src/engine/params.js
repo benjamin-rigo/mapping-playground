@@ -88,12 +88,14 @@ export const SOURCE_IDS = SOURCES.map((s) => s.id)
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v))
 
+// Bipolar modulation: the knob is the centre, a source at 0.5 leaves it alone,
+// 0 and 1 push it down and up by the patch amount.
 export function applyPatches(knobs, patches, sources, kind) {
   const out = { ...knobs }
   for (const { source, target, amount } of patches) {
     const param = PARAM_BY_KEY[target]
     if (!param || (kind && param.kind !== kind)) continue
-    out[target] = out[target] + amount * (sources[source] ?? 0)
+    out[target] = out[target] + amount * (2 * (sources[source] ?? 0.5) - 1)
   }
   for (const k in out) out[k] = clamp01(out[k])
   return out

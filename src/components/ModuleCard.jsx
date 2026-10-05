@@ -2,14 +2,9 @@ import { memo } from 'react'
 import { RotaryKnob } from '@/components/RotaryKnob'
 
 function modRange(patches, key) {
-  let neg = 0
-  let pos = 0
-  for (const x of patches) {
-    if (x.target !== key) continue
-    if (x.amount < 0) neg += x.amount
-    else pos += x.amount
-  }
-  return [neg, pos]
+  let depth = 0
+  for (const x of patches) if (x.target === key) depth += Math.abs(x.amount)
+  return [-depth, depth]
 }
 
 export const ModuleCard = memo(function ModuleCard({ module, knobs, patches, selected, onKnob, onSelect }) {

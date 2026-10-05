@@ -174,3 +174,7 @@ The first build felt rigid: fixed voices (Pluck, Bell…) and a halftone dot can
 - **Layout:** on desktop, resizable panels (stage | controls, and canvas over matrix) with px and % constraints. On mobile, a stack. The engine is rebuilt if the layout switches, because the canvas element changes.
 - **Performance:** incoming events no longer re-render the app (EventLog subscribes on its own). Module cards and knobs are memoized, with stable callbacks. The shader resolution adapts between 0.3× and 0.75× CSS px to hold 60 fps.
 - **Knobs** select on pointer-down or focus.
+
+## Revision 6 (2026-10-05): bipolar modulation
+
+Modulation is now bipolar: `value = clamp01(knob + Σ amount × (2·source − 1))`. The knob is the centre, a source at 0.5 leaves it unchanged, and the extremes push it down or up by the amount. The knob's orange arc is drawn symmetrically (± the summed |amount|). Presets are still written in the readable "base + amount × data" form and converted when they load (knob += amount/2, amount /= 2), so they sound the same as before.

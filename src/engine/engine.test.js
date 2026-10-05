@@ -39,21 +39,23 @@ describe('sources', () => {
 })
 
 describe('applyPatches', () => {
-  const knobs = { ...DEFAULT_KNOBS, 'voice.note': 0.2, 'field.flow': 0.9 }
+  const knobs = { ...DEFAULT_KNOBS, 'voice.note': 0.5, 'field.flow': 0.9 }
 
-  it('adds amount * source and clamps', () => {
-    const v = applyPatches(knobs, [{ source: 'port', target: 'voice.note', amount: 0.5 }], { port: 0.5 })
-    expect(v['voice.note']).toBeCloseTo(0.45)
+  it('is bipolar around the knob and clamps', () => {
+    const patch = [{ source: 'port', target: 'voice.note', amount: 0.4 }]
+    expect(applyPatches(knobs, patch, { port: 0.5 })['voice.note']).toBeCloseTo(0.5)
+    expect(applyPatches(knobs, patch, { port: 1 })['voice.note']).toBeCloseTo(0.9)
+    expect(applyPatches(knobs, patch, { port: 0 })['voice.note']).toBeCloseTo(0.1)
     const w = applyPatches(knobs, [{ source: 'port', target: 'field.flow', amount: 1 }], { port: 1 })
     expect(w['field.flow']).toBe(1)
   })
 
   it('sums several patches on one knob and inverts with negative amount', () => {
     const patches = [
-      { source: 'port', target: 'voice.note', amount: 0.4 },
-      { source: 'ip', target: 'voice.note', amount: -0.2 },
+      { source: 'port', target: 'voice.note', amount: 0.2 },
+      { source: 'ip', target: 'voice.note', amount: -0.1 },
     ]
-    expect(applyPatches(knobs, patches, { port: 1, ip: 1 })['voice.note']).toBeCloseTo(0.4)
+    expect(applyPatches(knobs, patches, { port: 1, ip: 1 })['voice.note']).toBeCloseTo(0.6)
   })
 
   it('only applies patches of the requested kind', () => {
@@ -62,7 +64,7 @@ describe('applyPatches', () => {
       { source: 'port', target: 'field.flow', amount: -0.5 },
     ]
     const v = applyPatches(knobs, patches, { port: 1 }, 'continuous')
-    expect(v['voice.note']).toBe(0.2)
+    expect(v['voice.note']).toBe(0.5)
     expect(v['field.flow']).toBeCloseTo(0.4)
   })
 })

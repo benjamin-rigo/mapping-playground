@@ -5,10 +5,20 @@ export const SCALES = ['minor', 'major', 'pentatonic', 'dorian', 'chromatic']
 
 const patch = (source, target, amount) => ({ source, target, amount })
 
-const preset = (name, knobs, patches, extra = {}) => ({
-  name,
-  settings: { version: 3, knobs: { ...DEFAULT_KNOBS, ...knobs }, patches, root: 'A', scale: 'minor', master: 0.8, response: 0.25, ...extra },
-})
+// Presets are written as "base + amount × data"; this converts them to the bipolar
+// form (centre knob ± amount) so they sound the same.
+const preset = (name, knobs, patches, extra = {}) => {
+  const k = { ...DEFAULT_KNOBS, ...knobs }
+  const bipolar = patches.map(({ source, target, amount }) => {
+    k[target] += amount / 2
+    return { source, target, amount: amount / 2 }
+  })
+  for (const key in k) k[key] = Math.round(Math.max(0, Math.min(1, k[key])) * 100) / 100
+  return {
+    name,
+    settings: { version: 3, knobs: k, patches: bipolar, root: 'A', scale: 'minor', master: 0.8, response: 0.25, ...extra },
+  }
+}
 
 export const PRESETS = [
   preset(
