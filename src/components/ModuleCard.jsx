@@ -1,13 +1,11 @@
 import { Knob } from '@/components/Knob'
-import { SOURCES } from '@/engine/params'
 
-const sourceLabel = Object.fromEntries(SOURCES.map((s) => [s.id, s.label]))
-
-export function ModuleCard({ module, knobs, patches, onKnob, children }) {
+export function ModuleCard({ module, settings, onKnob, onPatches, children, title = module.label }) {
+  const { knobs, patches } = settings
   return (
     <section className="rounded-lg border border-border bg-card p-4">
-      <h3 className="mb-4 text-xs font-medium tracking-wider text-muted-foreground uppercase">{module.label}</h3>
-      <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+      <h3 className="mb-4 text-xs font-medium tracking-wider text-muted-foreground uppercase">{title}</h3>
+      <div className="grid grid-cols-2 items-start gap-x-5 gap-y-4">
         {children}
         {module.params.map((p) => {
           const key = `${module.id}.${p.id}`
@@ -18,7 +16,11 @@ export function ModuleCard({ module, knobs, patches, onKnob, children }) {
               name={`${module.label} ${p.label}`}
               value={knobs[key]}
               onChange={(v) => onKnob(key, v)}
-              patchedBy={patches.filter((x) => x.target === key).map((x) => sourceLabel[x.source])}
+              patchable={p.patchable !== false}
+              patches={patches.map((patch, index) => ({ patch, index })).filter((x) => x.patch.target === key)}
+              onAddPatch={(source) => onPatches([...patches, { source, target: key, amount: 0.5 }])}
+              onPatchChange={(i, patch) => onPatches(patches.map((x, j) => (j === i ? patch : x)))}
+              onPatchRemove={(i) => onPatches(patches.filter((_, j) => j !== i))}
             />
           )
         })}

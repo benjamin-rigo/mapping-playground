@@ -51,11 +51,18 @@ export const MODULES = [
   },
   {
     id: 'impact', group: 'visual', label: 'Impact', kind: 'event',
-    params: [p('x', 'Position X', 0.5), p('y', 'Position Y', 0.5), p('size', 'Size', 0.35), p('strength', 'Strength', 0.5), p('swirl', 'Swirl', 0.5), p('decay', 'Decay', 0.4)],
+    params: [p('x', 'Position X', 0.5), p('y', 'Position Y', 0.5), p('size', 'Size', 0.35), p('strength', 'Strength', 0.5), p('ink', 'Ink', 0.4), p('decay', 'Decay', 0.4)],
+  },
+  {
+    id: 'distort', group: 'visual', label: 'Distortion', kind: 'event',
+    params: [
+      p('swirl', 'Swirl', 0.5), p('push', 'Push / pull', 0.6), p('ripple', 'Ripple', 0), p('smear', 'Smear', 0),
+      p('shatter', 'Shatter', 0), p('pixelate', 'Pixelate', 0), p('tint', 'Tint', 0),
+    ],
   },
   {
     id: 'lfo', group: 'mod', label: 'LFO', kind: 'continuous',
-    params: [p('rate', 'Rate', 0.3, { patchable: false })],
+    params: [p('rate', 'LFO rate', 0.3, { patchable: false })],
   },
 ]
 

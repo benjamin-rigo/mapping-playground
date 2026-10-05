@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, Link, Play, Square } from 'lucide-react'
 import { Knob } from '@/components/Knob'
 import { ModuleCard } from '@/components/ModuleCard'
-import { PatchPanel } from '@/components/PatchPanel'
+import { SourcesContext } from '@/components/Meter'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -77,6 +77,7 @@ export default function App() {
     setSettings((s) => ({ ...s, ...patch }))
   }
   const setKnob = (key, v) => edit({ knobs: { ...settings.knobs, [key]: v } })
+  const setPatches = (patches) => edit({ patches })
 
   function loadPreset(name) {
     setPreset(name)
@@ -92,7 +93,7 @@ export default function App() {
 
   const modules = (group) =>
     MODULES.filter((m) => m.group === group).map((m) => (
-      <ModuleCard key={m.id} module={m} knobs={settings.knobs} patches={settings.patches} onKnob={setKnob} />
+      <ModuleCard key={m.id} module={m} settings={settings} onKnob={setKnob} onPatches={setPatches} />
     ))
 
   return (
@@ -142,39 +143,35 @@ export default function App() {
         </div>
 
         <aside className="min-h-0 flex-1 overflow-y-auto border-border px-4 py-5 md:w-[440px] md:flex-none md:border-l">
-          <Tabs defaultValue="sound" className="gap-5">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="sound">Sound</TabsTrigger>
-              <TabsTrigger value="visual">Visual</TabsTrigger>
-              <TabsTrigger value="patch">Patch · {settings.patches.length}</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="sound" className="space-y-3">
-              <section className="rounded-lg border border-border bg-card p-4">
-                <h3 className="mb-4 text-xs font-medium tracking-wider text-muted-foreground uppercase">Pitch & output</h3>
-                <div className="grid grid-cols-2 gap-x-5 gap-y-4">
-                  <PickField label="Root" value={settings.root} options={ROOTS} onChange={(root) => edit({ root })} />
-                  <PickField label="Scale" value={settings.scale} options={SCALES} format={cap} onChange={(scale) => edit({ scale })} />
-                  <Knob
-                    label="Master"
-                    value={settings.master}
-                    display={`${Math.round(settings.master * 100)}%`}
-                    onChange={(master) => edit({ master })}
-                  />
-                </div>
-              </section>
-              {modules('sound')}
-            </TabsContent>
-
-            <TabsContent value="visual" className="space-y-3">
-              {modules('visual')}
-            </TabsContent>
-
-            <TabsContent value="patch" className="space-y-3">
-              {modules('mod')}
-              {engine && <PatchPanel patches={settings.patches} sources={engine.sources} onChange={(patches) => edit({ patches })} />}
-            </TabsContent>
-          </Tabs>
+          <SourcesContext.Provider value={engine?.sources ?? null}>
+            <div className="space-y-5">
+              <ModuleCard module={MODULES.find((m) => m.id === 'lfo')} title="Global" settings={settings} onKnob={setKnob} onPatches={setPatches}>
+                <PickField label="Root" value={settings.root} options={ROOTS} onChange={(root) => edit({ root })} />
+                <PickField label="Scale" value={settings.scale} options={SCALES} format={cap} onChange={(scale) => edit({ scale })} />
+                <Knob
+                  label="Master"
+                  value={settings.master}
+                  display={`${Math.round(settings.master * 100)}%`}
+                  onChange={(master) => edit({ master })}
+                />
+              </ModuleCard>
+              <p className="text-xs text-muted-foreground">
+                Each slider is a resting value. Press the cable icon to let live data push it around.
+              </p>
+              <Tabs defaultValue="sound" className="gap-3">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="sound">Sound</TabsTrigger>
+                  <TabsTrigger value="visual">Visual</TabsTrigger>
+                </TabsList>
+                <TabsContent value="sound" className="space-y-3">
+                  {modules('sound')}
+                </TabsContent>
+                <TabsContent value="visual" className="space-y-3">
+                  {modules('visual')}
+                </TabsContent>
+              </Tabs>
+            </div>
+          </SourcesContext.Provider>
         </aside>
       </main>
     </div>

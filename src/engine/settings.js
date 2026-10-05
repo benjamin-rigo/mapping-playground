@@ -13,7 +13,7 @@ const preset = (name, knobs, patches, extra = {}) => ({
 export const PRESETS = [
   preset(
     'Glass rain',
-    { 'impact.y': 0.05, 'impact.x': 0.05, 'voice.note': 0.1, 'color.hue': 0.6, 'color.contrast': 0.35, 'texture.softness': 0.75 },
+    { 'impact.y': 0.05, 'impact.x': 0.05, 'voice.note': 0.1, 'color.hue': 0.6, 'color.contrast': 0.35, 'texture.softness': 0.75, 'distort.ripple': 0.3 },
     [
       patch('port', 'voice.note', 0.8),
       patch('ipVol', 'voice.level', 0.3),
@@ -21,6 +21,7 @@ export const PRESETS = [
       patch('ip', 'impact.x', 0.9),
       patch('port', 'impact.y', 0.9),
       patch('ipVol', 'impact.size', 0.4),
+      patch('random', 'distort.push', -0.5),
       patch('density', 'field.turbulence', 0.4),
       patch('threat', 'drive.drive', 0.5),
       patch('lfo', 'color.hue', 0.03),
@@ -34,6 +35,7 @@ export const PRESETS = [
       'env.sustain': 0.5, 'env.release': 0.8, 'filter.cutoff': 0.35, 'filter.env': 0.2, 'reverb.size': 0.9, 'reverb.mix': 0.55,
       'drone.level': 0.6, 'drone.tone': 0.25, 'drone.motion': 0.5, 'field.flow': 0.12, 'field.turbulence': 0.3, 'field.scale': 0.2,
       'color.hue': 0.55, 'color.contrast': 0.3, 'impact.strength': 0.35, 'impact.decay': 0.8, 'impact.size': 0.6,
+      'distort.swirl': 0.25, 'distort.push': 0.5, 'distort.ripple': 0.7,
     },
     [
       patch('port', 'voice.note', 0.6),
@@ -53,7 +55,8 @@ export const PRESETS = [
       'env.release': 0.15, 'filter.reso': 0.55, 'filter.env': 0.7, 'drive.drive': 0.45, 'drive.crush': 0.4, 'delay.time': 0.15,
       'delay.feedback': 0.55, 'delay.mix': 0.35, 'reverb.mix': 0.15, 'drone.level': 0.1, 'field.turbulence': 0.85,
       'field.flow': 0.6, 'field.scale': 0.6, 'color.hue': 0.98, 'color.saturation': 0.9, 'color.contrast': 0.8,
-      'texture.grain': 0.8, 'texture.softness': 0.2, 'impact.strength': 0.8, 'impact.swirl': 0.9, 'impact.decay': 0.2,
+      'texture.grain': 0.8, 'texture.softness': 0.2, 'impact.strength': 0.8, 'impact.decay': 0.2, 'impact.ink': 0.6,
+      'distort.swirl': 0.3, 'distort.shatter': 0.7, 'distort.smear': 0.6, 'distort.pixelate': 0.35, 'distort.tint': 0.4,
     },
     [
       patch('port', 'filter.cutoff', 0.6),
@@ -63,6 +66,8 @@ export const PRESETS = [
       patch('random', 'impact.y', 1),
       patch('density', 'field.turbulence', 0.3),
       patch('ipVol', 'impact.strength', 0.4),
+      patch('density', 'distort.shatter', 0.3),
+      patch('portPop', 'distort.tint', 0.5),
     ],
     { scale: 'chromatic', root: 'E' },
   ),

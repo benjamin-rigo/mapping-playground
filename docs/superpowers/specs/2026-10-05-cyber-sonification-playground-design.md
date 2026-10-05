@@ -153,3 +153,8 @@ The first build felt rigid: fixed voices (Pluck, Bell…) and a halftone dot can
 - **Presets:** Glass rain (default), Low tide and Static storm. A preset is just a settings object.
 - **Settings v2:** `{ version: 2, knobs, patches, root, scale, master }`. v1 links fall back to the defaults.
 - **UI:** three tabs. Sound and Visual are module cards with knobs, and an orange dot marks a patched knob. Patch has the LFO, patch rows (source → target, amount, a live source meter) and live meters for every source.
+
+## Revision 3 (2026-10-05): inline patching, richer impacts
+
+- **Inline patching:** the separate Patch tab is gone. Each patchable knob has a cable button that opens a source menu. Its patches are listed right under the knob, each with an amount slider, a live source meter and a remove button. The LFO rate sits in a Global card above the Sound and Visual tabs, together with Root, Scale and Master.
+- **Impact** is now Position X/Y, Size, Strength, Ink and Decay. A new event-rate **Distortion** module adds seven mixable local effects per impact: Swirl, Push/pull (bipolar around 0.5), Ripple (expanding rings), Smear (horizontal row tearing), Shatter (block displacement), Pixelate (local uv quantization) and Tint (a shift toward the complementary hue). Every effect is patchable. Live impacts are capped at 12 to stay within the WebGL uniform limits on mobile.
