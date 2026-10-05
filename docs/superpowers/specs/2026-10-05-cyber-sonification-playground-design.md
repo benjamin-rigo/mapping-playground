@@ -187,3 +187,7 @@ Modulation is now bipolar: `value = clamp01(knob + Σ amount × (2·source − 1
   - Noise: Character (smooth → ridged → billow → cellular), Scale, Detail, Stretch (bipolar horizontal/vertical anisotropy) and Symmetry (off, mirror, or a 2–8 slice kaleidoscope).
   - Motion: Turbulence, Flow and Direction (the angle of the flow vector).
   - Texture gains Bands, which posterizes the ink/paper mix into 16 down to 2 levels.
+
+## Revision 8 (2026-10-05): whole-frame distortion
+
+The per-impact blobs are gone. **Distortion** is now a continuous module that acts on the whole frame: Swirl, Push/pull (bipolar, 0.5 neutral), Ripple, Smear (random row tearing), Shatter (block displacement), Pixelate and Tint. Swirl, push and ripple centre on the impact point and fall off over Reach; the other effects cover everything. **Impact** (event-rate) now means: Pos X/Y (the distortion centre, which eases toward each event over about 150 ms), Reach, Hit (how much each event spikes the distortions, added to an exponentially decaying envelope), Decay and Ink (an ink flash at the centre). A hit multiplies each distortion as `min(1, knob × (1 + 2·hit))`, so a distortion at zero stays off. The shader is simpler and cheaper than the 12-impact version.

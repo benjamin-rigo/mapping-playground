@@ -62,12 +62,12 @@ export const MODULES = [
   },
   {
     id: 'impact', group: 'visual', label: 'Impact', kind: 'event',
-    params: [p('x', 'Pos X', 0.5), p('y', 'Pos Y', 0.5), p('size', 'Size', 0.35), p('strength', 'Strength', 0.5), p('ink', 'Ink', 0.4), p('decay', 'Decay', 0.4)],
+    params: [p('x', 'Pos X', 0.5), p('y', 'Pos Y', 0.5), p('reach', 'Reach', 0.45), p('hit', 'Hit', 0.5), p('decay', 'Decay', 0.4), p('ink', 'Ink', 0.4)],
   },
   {
-    id: 'distort', group: 'visual', label: 'Distortion', kind: 'event',
+    id: 'distort', group: 'visual', label: 'Distortion', kind: 'continuous',
     params: [
-      p('swirl', 'Swirl', 0.5), p('push', 'Push/pull', 0.6), p('ripple', 'Ripple', 0.3), p('smear', 'Smear', 0),
+      p('swirl', 'Swirl', 0.15), p('push', 'Push/pull', 0.5), p('ripple', 'Ripple', 0.1), p('smear', 'Smear', 0),
       p('shatter', 'Shatter', 0), p('pixelate', 'Pixelate', 0), p('tint', 'Tint', 0),
     ],
   },
