@@ -1,7 +1,7 @@
 import { createField } from './field.js'
 import { createSources, normalize } from './fields.js'
 import { loadDataset } from './isc.js'
-import { applyPatches } from './params.js'
+import { PARAM_BY_KEY, applyPatches } from './params.js'
 import { createSampler } from './sampler.js'
 import { DEFAULTS } from './settings.js'
 import { createSynth, expMap } from './synth.js'
@@ -22,6 +22,8 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
   let audioClock = 0
   const recent = []
   const listeners = new Set()
+  // Latest modulated value of every knob, read by the UI to animate knobs.
+  const live = {}
   const tau = () => expMap(settings.response, 0.01, 3)
 
   const sampler = createSampler({
@@ -29,6 +31,7 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
       recent.push(performance.now())
       sources.onEvent(normalize(event, data))
       const values = applyPatches(settings.knobs, settings.patches, sources.latest, 'event')
+      for (const key in values) if (PARAM_BY_KEY[key].kind === 'event') live[key] = values[key]
       synth.play(values)
       field.addImpact(values)
       for (const fn of listeners) fn(event)
@@ -45,6 +48,7 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
       tau: tau(),
     })
     const values = applyPatches(settings.knobs, settings.patches, sources.smooth, 'continuous')
+    for (const key in values) if (PARAM_BY_KEY[key].kind === 'continuous') live[key] = values[key]
     field.render(values, dt)
     audioClock += dt
     if (audioClock > 0.05) {
@@ -63,6 +67,7 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
 
   return {
     sources,
+    live,
     async start() {
       if (running) return
       running = true

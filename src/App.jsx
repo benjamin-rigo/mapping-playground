@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Check, Link, Play, Square } from 'lucide-react'
-import { SourcesContext } from '@/components/Meter'
+import { EngineContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
 import { ModuleCard } from '@/components/ModuleCard'
 import { RotaryKnob } from '@/components/RotaryKnob'
@@ -196,7 +196,7 @@ export default function App() {
   )
 
   return (
-    <SourcesContext.Provider value={engine?.sources ?? null}>
+    <EngineContext.Provider value={engine}>
       <div className="flex h-dvh flex-col bg-background text-foreground">
         <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
           <h1 className="mr-auto text-sm font-semibold tracking-tight">Cyber Sonification Playground</h1>
@@ -251,6 +251,6 @@ export default function App() {
           </main>
         )}
       </div>
-    </SourcesContext.Provider>
+    </EngineContext.Provider>
   )
 }

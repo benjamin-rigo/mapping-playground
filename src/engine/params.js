@@ -45,8 +45,12 @@ export const MODULES = [
     params: [p('level', 'Level', 0.25), p('tone', 'Tone', 0.35), p('motion', 'Motion', 0.3)],
   },
   {
-    id: 'field', group: 'visual', label: 'Field', kind: 'continuous',
-    params: [p('scale', 'Scale', 0.35), p('turbulence', 'Turbulence', 0.45), p('flow', 'Flow', 0.25), p('detail', 'Detail', 0.6)],
+    id: 'noise', group: 'visual', label: 'Noise', kind: 'continuous',
+    params: [p('character', 'Character', 0), p('scale', 'Scale', 0.35), p('detail', 'Detail', 0.6), p('stretch', 'Stretch', 0.5), p('symmetry', 'Symmetry', 0)],
+  },
+  {
+    id: 'motion', group: 'visual', label: 'Motion', kind: 'continuous',
+    params: [p('turbulence', 'Turbulence', 0.45), p('flow', 'Flow', 0.25), p('direction', 'Direction', 0.25)],
   },
   {
     id: 'color', group: 'visual', label: 'Color', kind: 'continuous',
@@ -54,7 +58,7 @@ export const MODULES = [
   },
   {
     id: 'texture', group: 'visual', label: 'Texture', kind: 'continuous',
-    params: [p('grain', 'Grain', 0.45), p('softness', 'Softness', 0.75)],
+    params: [p('grain', 'Grain', 0.45), p('softness', 'Softness', 0.75), p('bands', 'Bands', 0)],
   },
   {
     id: 'impact', group: 'visual', label: 'Impact', kind: 'event',

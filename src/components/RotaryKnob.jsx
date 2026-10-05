@@ -1,4 +1,5 @@
-import { memo, useRef } from 'react'
+import { memo, useContext, useEffect, useRef } from 'react'
+import { EngineContext } from '@/components/Meter'
 import { cn } from '@/lib/utils'
 
 const SIZE = 44
@@ -6,6 +7,11 @@ const R = 17
 const START = -135
 const SWEEP = 270
 const clamp01 = (v) => Math.max(0, Math.min(1, v))
+
+function point(v, r) {
+  const a = ((START + SWEEP * v - 90) * Math.PI) / 180
+  return [SIZE / 2 + r * Math.cos(a), SIZE / 2 + r * Math.sin(a)]
+}
 
 function arc(from, to) {
   const a0 = ((START + SWEEP * from - 90) * Math.PI) / 180
@@ -16,9 +22,38 @@ function arc(from, to) {
 }
 
 // Drag up/down to turn; touching it selects it (highlights its row in the matrix);
-// double-click to reset. The orange arc shows how far patched data can move it.
+// double-click to reset. The faint orange arc is the modulation range; the bright
+// arc and dot show where the data is pushing it right now.
 export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, defaultValue, onChange, onSelect, selected, modNeg = 0, modPos = 0, display }) {
   const drag = useRef(null)
+  const engine = useContext(EngineContext)
+  const liveArc = useRef(null)
+  const liveDot = useRef(null)
+  const valueRef = useRef(value)
+  useEffect(() => {
+    valueRef.current = value
+  }, [value])
+  const modulated = modPos - modNeg > 0.005
+
+  // Animate the live modulated value straight into the SVG, without re-rendering.
+  useEffect(() => {
+    if (!modulated || !engine || !id) return
+    let raf
+    const loop = () => {
+      const live = engine.live[id]
+      if (live != null && liveArc.current) {
+        const base = valueRef.current
+        const [x, y] = point(live, R)
+        liveDot.current.setAttribute('cx', x)
+        liveDot.current.setAttribute('cy', y)
+        liveDot.current.style.opacity = 1
+        liveArc.current.setAttribute('d', Math.abs(live - base) > 0.003 ? arc(Math.min(live, base), Math.max(live, base)) : '')
+      }
+      raf = requestAnimationFrame(loop)
+    }
+    loop()
+    return () => cancelAnimationFrame(raf)
+  }, [modulated, engine, id])
 
   function onPointerDown(e) {
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -73,13 +108,10 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
           {value > 0.005 && (
             <path d={arc(0, value)} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="text-foreground" />
           )}
-          {hi - lo > 0.005 && <path d={arc(lo, hi)} fill="none" stroke="currentColor" strokeWidth="5" className="text-orange-400/70" />}
-          <circle
-            cx={SIZE / 2 + 9 * Math.cos(((START + SWEEP * value - 90) * Math.PI) / 180)}
-            cy={SIZE / 2 + 9 * Math.sin(((START + SWEEP * value - 90) * Math.PI) / 180)}
-            r="2"
-            className="fill-foreground"
-          />
+          {modulated && <path d={arc(lo, hi)} fill="none" stroke="currentColor" strokeWidth="5" className="text-orange-400/25" />}
+          {modulated && <path ref={liveArc} fill="none" stroke="currentColor" strokeWidth="5" className="text-orange-400" />}
+          {modulated && <circle ref={liveDot} r="3.5" className="fill-orange-300" style={{ opacity: 0 }} />}
+          <circle cx={point(value, 9)[0]} cy={point(value, 9)[1]} r="2" className="fill-foreground" />
         </svg>
       </div>
       <span className={cn('max-w-16 truncate text-[11px] leading-tight', selected ? 'text-orange-300' : 'text-muted-foreground')}>

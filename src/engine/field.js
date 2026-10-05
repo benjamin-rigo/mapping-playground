@@ -5,7 +5,8 @@ const VERT = `attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }
 const FRAG = `
 precision highp float;
 uniform vec2 uRes;
-uniform float uTime, uFlowT, uScale, uTurb, uDetail, uThreshold, uSoft, uGrain;
+uniform float uTime, uScale, uTurb, uDetail, uThreshold, uSoft, uGrain, uChar, uStretch, uSym, uBands;
+uniform vec2 uFlow;
 uniform vec3 uPaper, uInkA, uInkB, uTint;
 uniform vec4 uImp[${MAX_IMPACTS}];  // x, y, strength * life, size
 uniform vec4 uImpA[${MAX_IMPACTS}]; // swirl, push (0..1 -> pull..push), ripple, smear
@@ -22,11 +23,33 @@ float noise(vec2 p) {
   vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
 }
+float cell(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  float d = 1.0;
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      vec2 g = vec2(float(x), float(y));
+      vec2 o = vec2(hash(i + g), hash(i + g + 17.1));
+      d = min(d, length(g + o - f));
+    }
+  }
+  return d;
+}
+// Character morphs the base noise: smooth -> ridged -> billow -> cellular.
+float base(vec2 p) {
+  float c = uChar * 3.0;
+  float n = noise(p);
+  float ridged = 1.0 - abs(2.0 * n - 1.0);
+  if (c < 1.0) return mix(n, ridged, c);
+  float billow = abs(2.0 * n - 1.0);
+  if (c < 2.0) return mix(ridged, billow, c - 1.0);
+  return mix(billow, cell(p), c - 2.0);
+}
 float fbm(vec2 p) {
   float v = 0.0, a = 0.5, tot = 0.0;
   for (int i = 0; i < 6; i++) {
     float w = clamp(uDetail - float(i), 0.0, 1.0);
-    v += a * w * noise(p);
+    v += a * w * base(p);
     tot += a * w;
     p = mat2(1.6, 1.2, -1.2, 1.6) * p + 3.1;
     a *= 0.5;
@@ -63,11 +86,31 @@ void main() {
     float n = mix(220.0, 14.0, pix);
     suv = (floor(suv * n) + 0.5) / n;
   }
-  vec2 p = suv * uScale;
-  vec2 q = vec2(fbm(p + vec2(0.0, uFlowT)), fbm(p + vec2(5.2, 1.3) - uFlowT * 0.7));
-  vec2 r = vec2(fbm(p + uTurb * 4.0 * q + vec2(1.7, 9.2) + 0.15 * uFlowT), fbm(p + uTurb * 4.0 * q + vec2(8.3, 2.8) - 0.126 * uFlowT));
+  // Symmetry: 1 mirrors, 2..8 folds into kaleidoscope slices around the centre.
+  float segs = floor(uSym * 8.0 + 0.5);
+  if (segs > 0.5) {
+    vec2 c = vec2(aspect.x * 0.5, 0.5);
+    vec2 d = suv - c;
+    if (segs < 1.5) {
+      d.x = abs(d.x);
+    } else {
+      float seg = 6.2831853 / segs;
+      float a = mod(atan(d.y, d.x), seg);
+      a = abs(a - seg * 0.5);
+      d = length(d) * vec2(cos(a), sin(a));
+    }
+    suv = c + d;
+  }
+  float sx = exp2((uStretch - 0.5) * 5.0);
+  vec2 p = suv * uScale * vec2(1.0 / sx, sx);
+  vec2 q = vec2(fbm(p + uFlow), fbm(p + vec2(5.2, 1.3) - uFlow * 0.7));
+  vec2 r = vec2(fbm(p + uTurb * 4.0 * q + vec2(1.7, 9.2) + 0.15 * uFlow), fbm(p + uTurb * 4.0 * q + vec2(8.3, 2.8) - 0.126 * uFlow));
   float v = fbm(p + uTurb * 4.0 * r) + ink;
   float t = smoothstep(uThreshold - uSoft, uThreshold + uSoft, v);
+  if (uBands > 0.01) {
+    float levels = floor(mix(16.0, 2.0, uBands));
+    t = floor(t * levels + 0.5) / levels;
+  }
   vec3 inkCol = mix(uInkA, uInkB, smoothstep(0.3, 0.7, q.x));
   vec3 col = mix(uPaper, inkCol, t);
   col = mix(col, uTint, clamp(tint, 0.0, 1.0) * 0.85);
@@ -112,7 +155,7 @@ export function createField(canvas) {
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)
 
   const u = {}
-  for (const name of ['uRes', 'uTime', 'uFlowT', 'uScale', 'uTurb', 'uDetail', 'uThreshold', 'uSoft', 'uGrain', 'uPaper', 'uInkA', 'uInkB', 'uTint', 'uImp', 'uImpA', 'uImpB', 'uInk']) {
+  for (const name of ['uRes', 'uTime', 'uFlow', 'uScale', 'uTurb', 'uDetail', 'uThreshold', 'uSoft', 'uGrain', 'uChar', 'uStretch', 'uSym', 'uBands', 'uPaper', 'uInkA', 'uInkB', 'uTint', 'uImp', 'uImpA', 'uImpB', 'uInk']) {
     u[name] = gl.getUniformLocation(prog, name)
   }
 
@@ -122,7 +165,7 @@ export function createField(canvas) {
   const impB = new Float32Array(MAX_IMPACTS * 4)
   const inkData = new Float32Array(MAX_IMPACTS)
   let time = 0
-  let flowT = 0
+  const flow = [0, 0]
   // Render resolution adapts to frame time; the field is soft anyway, so it can go low.
   let scale = 0.6
   let frameAvg = 1 / 60
@@ -156,7 +199,10 @@ export function createField(canvas) {
       gl.viewport(0, 0, w, h)
 
       time += dt
-      flowT += dt * (0.02 + v['field.flow'] ** 2 * 1.2)
+      const speed = dt * (0.02 + v['motion.flow'] ** 2 * 1.2)
+      const angle = v['motion.direction'] * Math.PI * 2
+      flow[0] += Math.cos(angle) * speed
+      flow[1] += Math.sin(angle) * speed
 
       impData.fill(0)
       for (let i = impacts.length - 1; i >= 0; i--) {
@@ -178,10 +224,14 @@ export function createField(canvas) {
       const inkL = 0.75 - paper * 0.4
       gl.uniform2f(u.uRes, w, h)
       gl.uniform1f(u.uTime, time)
-      gl.uniform1f(u.uFlowT, flowT)
-      gl.uniform1f(u.uScale, 0.8 + v['field.scale'] * 7)
-      gl.uniform1f(u.uTurb, v['field.turbulence'])
-      gl.uniform1f(u.uDetail, 1 + v['field.detail'] * 5)
+      gl.uniform2fv(u.uFlow, flow)
+      gl.uniform1f(u.uScale, 0.8 + v['noise.scale'] * 7)
+      gl.uniform1f(u.uTurb, v['motion.turbulence'])
+      gl.uniform1f(u.uDetail, 1 + v['noise.detail'] * 5)
+      gl.uniform1f(u.uChar, v['noise.character'])
+      gl.uniform1f(u.uStretch, v['noise.stretch'])
+      gl.uniform1f(u.uSym, v['noise.symmetry'])
+      gl.uniform1f(u.uBands, v['texture.bands'])
       gl.uniform1f(u.uThreshold, 0.7 - v['color.contrast'] * 0.3)
       gl.uniform1f(u.uSoft, 0.03 + v['texture.softness'] * 0.3)
       gl.uniform1f(u.uGrain, v['texture.grain'] * 0.3)

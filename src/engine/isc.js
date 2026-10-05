@@ -14,7 +14,9 @@ export function parseDataset({ ports, ips, infocon }) {
     ports: portList,
     ips: ipList,
     threat: THREAT[infocon?.status] ?? 0,
+    minPortW: Math.min(...portList.map((p) => p.w)),
     maxPortW: Math.max(...portList.map((p) => p.w)),
+    minIpW: Math.min(...ipList.map((p) => p.w)),
     maxIpW: Math.max(...ipList.map((p) => p.w)),
   }
 }

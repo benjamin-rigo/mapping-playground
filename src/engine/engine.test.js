@@ -16,7 +16,9 @@ const seeded = (seed = 1) => () => {
 
 describe('normalize', () => {
   it('maps event fields into 0..1', () => {
-    const f = normalize({ ip: '204.1.2.3', ipWeight: 1000, port: 22, portWeight: 1 }, { maxPortW: 1000, maxIpW: 1000 })
+    const ctx = { minPortW: 10, maxPortW: 1000, minIpW: 10, maxIpW: 1000 }
+    const f = normalize({ ip: '204.1.2.3', ipWeight: 1000, port: 22, portWeight: 10 }, ctx)
+    expect(normalize({ ip: '1.1.1.1', ipWeight: 100, port: 22, portWeight: 100 }, ctx).portPop).toBeCloseTo(0.5)
     expect(f.port).toBeCloseTo(Math.log(22) / Math.log(65535))
     expect(f.portPop).toBe(0)
     expect(f.ipVol).toBe(1)
@@ -39,15 +41,15 @@ describe('sources', () => {
 })
 
 describe('applyPatches', () => {
-  const knobs = { ...DEFAULT_KNOBS, 'voice.note': 0.5, 'field.flow': 0.9 }
+  const knobs = { ...DEFAULT_KNOBS, 'voice.note': 0.5, 'motion.flow': 0.9 }
 
   it('is bipolar around the knob and clamps', () => {
     const patch = [{ source: 'port', target: 'voice.note', amount: 0.4 }]
     expect(applyPatches(knobs, patch, { port: 0.5 })['voice.note']).toBeCloseTo(0.5)
     expect(applyPatches(knobs, patch, { port: 1 })['voice.note']).toBeCloseTo(0.9)
     expect(applyPatches(knobs, patch, { port: 0 })['voice.note']).toBeCloseTo(0.1)
-    const w = applyPatches(knobs, [{ source: 'port', target: 'field.flow', amount: 1 }], { port: 1 })
-    expect(w['field.flow']).toBe(1)
+    const w = applyPatches(knobs, [{ source: 'port', target: 'motion.flow', amount: 1 }], { port: 1 })
+    expect(w['motion.flow']).toBe(1)
   })
 
   it('sums several patches on one knob and inverts with negative amount', () => {
@@ -61,11 +63,11 @@ describe('applyPatches', () => {
   it('only applies patches of the requested kind', () => {
     const patches = [
       { source: 'port', target: 'voice.note', amount: 0.5 },
-      { source: 'port', target: 'field.flow', amount: -0.5 },
+      { source: 'port', target: 'motion.flow', amount: -0.5 },
     ]
     const v = applyPatches(knobs, patches, { port: 1 }, 'continuous')
     expect(v['voice.note']).toBe(0.5)
-    expect(v['field.flow']).toBeCloseTo(0.4)
+    expect(v['motion.flow']).toBeCloseTo(0.4)
   })
 })
 

@@ -1,15 +1,16 @@
 const clamp01 = (v) => Math.max(0, Math.min(1, v))
-const logRatio = (v, max) => (max > 1 ? clamp01(Math.log(Math.max(1, v)) / Math.log(max)) : 0)
+// Log-scaled position between the smallest and largest weight in the current dataset.
+const logRange = (v, min, max) => (max > min ? clamp01(Math.log(v / min) / Math.log(max / min)) : 0.5)
 
 export const THREAT = { green: 0, yellow: 0.33, orange: 0.66, red: 1 }
 
-// Per-event source values, all 0..1. ctx: { maxPortW, maxIpW }
+// Per-event source values, all 0..1. ctx: { minPortW, maxPortW, minIpW, maxIpW }
 export function normalize(event, ctx) {
   return {
     port: clamp01(Math.log(Math.max(1, event.port)) / Math.log(65535)),
-    portPop: logRatio(event.portWeight, ctx.maxPortW),
+    portPop: logRange(event.portWeight, ctx.minPortW, ctx.maxPortW),
     ip: (Number(event.ip.split('.')[0]) || 0) / 255,
-    ipVol: logRatio(event.ipWeight, ctx.maxIpW),
+    ipVol: logRange(event.ipWeight, ctx.minIpW, ctx.maxIpW),
   }
 }
 

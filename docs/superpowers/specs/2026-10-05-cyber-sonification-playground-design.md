@@ -178,3 +178,12 @@ The first build felt rigid: fixed voices (Pluck, Bell…) and a halftone dot can
 ## Revision 6 (2026-10-05): bipolar modulation
 
 Modulation is now bipolar: `value = clamp01(knob + Σ amount × (2·source − 1))`. The knob is the centre, a source at 0.5 leaves it unchanged, and the extremes push it down or up by the amount. The knob's orange arc is drawn symmetrically (± the summed |amount|). Presets are still written in the readable "base + amount × data" form and converted when they load (knob += amount/2, amount /= 2), so they sound the same as before.
+
+## Revision 7 (2026-10-05): visible modulation, richer noise background
+
+- **Live modulation display:** the engine keeps `live[key]`, the latest modulated value of every knob (event knobs update per event, continuous ones every frame). Each modulated knob animates a bright arc and dot from its own value to the live value with requestAnimationFrame, writing straight into the SVG with no React re-render. The faint arc still shows the full ± range.
+- **Weight scaling:** Port popularity and Attacker volume are log-scaled between the smallest and largest weight in the current dataset, instead of between 1 and the largest. Before this the top ports all landed between 0.9 and 1.0 and barely moved anything.
+- **Background controls** (the old Field module is split up):
+  - Noise: Character (smooth → ridged → billow → cellular), Scale, Detail, Stretch (bipolar horizontal/vertical anisotropy) and Symmetry (off, mirror, or a 2–8 slice kaleidoscope).
+  - Motion: Turbulence, Flow and Direction (the angle of the flow vector).
+  - Texture gains Bands, which posterizes the ink/paper mix into 16 down to 2 levels.
