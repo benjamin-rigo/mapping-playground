@@ -50,7 +50,7 @@ Every field is normalized to 0..1. These are the options in each "driven by" dro
 | Port popularity | `log(records) / log(max records)` in the current dataset |
 | Attacker IP | first octet / 255 (deterministic, so the same IP always gives the same value) |
 | Attacker volume | `log(reports) / log(max reports)` in the current dataset |
-| Density | events in the last 5 s / 20, clamped |
+| Density | events in the last 5 s / 30, clamped (about 0.5 at the normal rate, near 1 during bursts) |
 | Threat level | infocon: green 0, yellow 0.33, orange 0.66, red 1 |
 | Random | new random value per event |
 | Off | parameter is not driven |
@@ -110,6 +110,7 @@ A preset that sounds and looks good on the first Start:
 - Position Y ← Port
 - Blob size ← Attacker volume
 - Glitch ← Density
+- Accent mix ← Density (so the accent color appears mainly during port-scan bursts)
 - Everything else Off, with sensible bases
 - Root A, minor scale, Pluck voice, chords on
 
