@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { Meter } from '@/components/Meter'
+import { useDrag } from '@/components/useDrag'
 import { Button } from '@/components/ui/button'
 import { PARAMS, SOURCES, setPatch } from '@/engine/params'
 import { cn } from '@/lib/utils'
@@ -10,8 +11,19 @@ const clamp = (v) => Math.max(-1, Math.min(1, v))
 // One matrix cell: drag up/down to set how much this data source moves the target.
 // Click an empty cell for +50%, double-click to clear.
 function AmountCell({ amount, label, onChange }) {
-  const drag = useRef(null)
+  const start = useRef(amount)
   const pct = Math.round(amount * 100)
+  const drag = useDrag({
+    onStart() {
+      start.current = amount
+    },
+    onDrag(dy) {
+      onChange(Math.round(clamp(start.current + dy / 120) * 100) / 100)
+    },
+    onEnd(moved) {
+      if (!moved && amount === 0) onChange(0.5)
+    },
+  })
 
   return (
     <div
@@ -21,21 +33,7 @@ function AmountCell({ amount, label, onChange }) {
       aria-valuemin={-100}
       aria-valuemax={100}
       aria-valuenow={pct}
-      onPointerDown={(e) => {
-        e.currentTarget.setPointerCapture(e.pointerId)
-        drag.current = { y: e.clientY, v: amount, moved: false }
-      }}
-      onPointerMove={(e) => {
-        const d = drag.current
-        if (!d) return
-        const dy = d.y - e.clientY
-        if (Math.abs(dy) > 2) d.moved = true
-        if (d.moved) onChange(Math.round(clamp(d.v + dy / 120) * 100) / 100)
-      }}
-      onPointerUp={() => {
-        if (drag.current && !drag.current.moved && amount === 0) onChange(0.5)
-        drag.current = null
-      }}
+      {...drag}
       onDoubleClick={() => onChange(0)}
       onKeyDown={(e) => {
         const step = { ArrowUp: 0.05, ArrowRight: 0.05, ArrowDown: -0.05, ArrowLeft: -0.05 }[e.key]
@@ -63,15 +61,22 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className }
   const { patches } = settings
   const rows = PARAMS.filter((p) => p.patchable && (p.key === selected || patches.some((x) => x.target === p.key)))
   const rowRefs = useRef({})
+  const box = useRef(null)
 
+  // Scroll only the matrix itself; scrollIntoView would also scroll the page and panels.
   useEffect(() => {
-    rowRefs.current[selected]?.scrollIntoView({ block: 'nearest' })
-  }, [selected])
+    const row = rowRefs.current[selected]
+    const el = box.current
+    if (!row || !el) return
+    const head = el.querySelector('thead')?.offsetHeight ?? 0
+    if (row.offsetTop - head < el.scrollTop) el.scrollTop = row.offsetTop - head
+    else if (row.offsetTop + row.offsetHeight > el.scrollTop + el.clientHeight) el.scrollTop = row.offsetTop + row.offsetHeight - el.clientHeight
+  }, [selected, rows.length])
 
   const amountOf = (source, target) => patches.find((x) => x.source === source && x.target === target)?.amount ?? 0
 
   return (
-    <section className={cn('@container overflow-auto', className)} aria-label="Modulation matrix">
+    <section ref={box} className={cn('@container overflow-auto', className)} aria-label="Modulation matrix">
       <table className="w-full table-fixed border-separate border-spacing-x-1 border-spacing-y-0.5 text-xs">
         <thead className="sticky top-0 z-10 bg-background">
           <tr>

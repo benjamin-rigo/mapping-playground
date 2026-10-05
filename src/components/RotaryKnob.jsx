@@ -1,5 +1,6 @@
 import { memo, useContext, useEffect, useRef } from 'react'
 import { EngineContext } from '@/components/Meter'
+import { useDrag } from '@/components/useDrag'
 import { cn } from '@/lib/utils'
 
 const SIZE = 44
@@ -25,7 +26,6 @@ function arc(from, to) {
 // double-click to reset. The faint orange arc is the modulation range; the bright
 // arc and dot show where the data is pushing it right now.
 export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, defaultValue, onChange, onSelect, selected, modNeg = 0, modPos = 0, display }) {
-  const drag = useRef(null)
   const engine = useContext(EngineContext)
   const liveArc = useRef(null)
   const liveDot = useRef(null)
@@ -55,19 +55,16 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
     return () => cancelAnimationFrame(raf)
   }, [modulated, engine, id])
 
-  function onPointerDown(e) {
-    e.currentTarget.setPointerCapture(e.pointerId)
-    drag.current = { y: e.clientY, v: value }
-    onSelect?.(id)
-  }
-  function onPointerMove(e) {
-    const d = drag.current
-    if (!d) return
-    onChange(Math.round(clamp01(d.v + (d.y - e.clientY) / (e.shiftKey ? 600 : 150)) * 100) / 100, id)
-  }
-  function onPointerUp() {
-    drag.current = null
-  }
+  const start = useRef(value)
+  const drag = useDrag({
+    onStart() {
+      start.current = valueRef.current
+      onSelect?.(id)
+    },
+    onDrag(dy, e) {
+      onChange(Math.round(clamp01(start.current + dy / (e.shiftKey ? 600 : 150)) * 100) / 100, id)
+    },
+  })
   function onKeyDown(e) {
     const step = { ArrowUp: 0.01, ArrowRight: 0.01, ArrowDown: -0.01, ArrowLeft: -0.01, PageUp: 0.1, PageDown: -0.1 }[e.key]
     if (step) {
@@ -92,9 +89,7 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
         aria-valuemax={1}
         aria-valuenow={value}
         aria-valuetext={display ?? value.toFixed(2)}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
+        {...drag}
         onFocus={() => onSelect?.(id)}
         onDoubleClick={() => defaultValue != null && onChange(defaultValue, id)}
         onKeyDown={onKeyDown}
