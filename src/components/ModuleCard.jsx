@@ -1,26 +1,36 @@
-import { Knob } from '@/components/Knob'
+import { RotaryKnob } from '@/components/RotaryKnob'
 
-export function ModuleCard({ module, settings, onKnob, onPatches, children, title = module.label }) {
-  const { knobs, patches } = settings
+export function modRange(patches, key) {
+  let neg = 0
+  let pos = 0
+  for (const x of patches) {
+    if (x.target !== key) continue
+    if (x.amount < 0) neg += x.amount
+    else pos += x.amount
+  }
+  return { neg, pos }
+}
+
+export function ModuleCard({ module, settings, selected, onKnob, onSelect, children, title = module.label }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
-      <h3 className="mb-4 text-xs font-medium tracking-wider text-muted-foreground uppercase">{title}</h3>
-      <div className="grid grid-cols-2 items-start gap-x-5 gap-y-4">
+    <section className="rounded-lg border border-border bg-card px-3 py-3">
+      <h3 className="mb-3 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{title}</h3>
+      <div className="grid grid-cols-4 gap-x-1 gap-y-3">
         {children}
         {module.params.map((p) => {
           const key = `${module.id}.${p.id}`
+          const patchable = p.patchable !== false
           return (
-            <Knob
+            <RotaryKnob
               key={key}
               label={p.label}
               name={`${module.label} ${p.label}`}
-              value={knobs[key]}
+              value={settings.knobs[key]}
+              defaultValue={p.value}
               onChange={(v) => onKnob(key, v)}
-              patchable={p.patchable !== false}
-              patches={patches.map((patch, index) => ({ patch, index })).filter((x) => x.patch.target === key)}
-              onAddPatch={(source) => onPatches([...patches, { source, target: key, amount: 0.5 }])}
-              onPatchChange={(i, patch) => onPatches(patches.map((x, j) => (j === i ? patch : x)))}
-              onPatchRemove={(i) => onPatches(patches.filter((_, j) => j !== i))}
+              onSelect={patchable ? () => onSelect(key) : undefined}
+              selected={selected === key}
+              mod={modRange(settings.patches, key)}
             />
           )
         })}

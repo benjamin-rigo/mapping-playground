@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { createSources, normalize } from './fields.js'
 import { parseDataset } from './isc.js'
 import { createSampler, pickWeighted } from './sampler.js'
-import { DEFAULT_KNOBS, applyPatches } from './params.js'
+import { DEFAULT_KNOBS, applyPatches, setPatch } from './params.js'
 import { DEFAULTS, PRESETS, decodeSettings, encodeSettings, sanitize } from './settings.js'
-import { noteFor } from './synth.js'
+import { noteFor, shapePartials } from './synth.js'
 
 const snapshot = JSON.parse(readFileSync(new URL('../../public/snapshot.json', import.meta.url)))
 
@@ -16,12 +16,11 @@ const seeded = (seed = 1) => () => {
 
 describe('normalize', () => {
   it('maps event fields into 0..1', () => {
-    const f = normalize({ ip: '204.1.2.3', ipWeight: 1000, port: 22, portWeight: 1 }, { maxPortW: 1000, maxIpW: 1000 }, () => 0.5)
+    const f = normalize({ ip: '204.1.2.3', ipWeight: 1000, port: 22, portWeight: 1 }, { maxPortW: 1000, maxIpW: 1000 })
     expect(f.port).toBeCloseTo(Math.log(22) / Math.log(65535))
     expect(f.portPop).toBe(0)
     expect(f.ipVol).toBe(1)
     expect(f.ip).toBeCloseTo(204 / 255)
-    expect(f.random).toBe(0.5)
   })
 })
 
@@ -29,11 +28,11 @@ describe('sources', () => {
   it('smooths toward the latest values and clamps density', () => {
     const s = createSources()
     s.onEvent({ port: 1 })
-    s.tick(0.1, { density: 90, threat: 0.5, lfoRate: 0.1 })
+    s.tick(0.1, { density: 90, threat: 0.5 })
     expect(s.latest.density).toBe(1)
     expect(s.smooth.port).toBeGreaterThan(0)
     expect(s.smooth.port).toBeLessThan(0.2)
-    for (let i = 0; i < 100; i++) s.tick(0.1, { density: 0, threat: 0.5, lfoRate: 0.1 })
+    for (let i = 0; i < 100; i++) s.tick(0.1, { density: 0, threat: 0.5 })
     expect(s.smooth.port).toBeCloseTo(1)
     expect(s.smooth.threat).toBeCloseTo(0.5)
   })
@@ -68,6 +67,25 @@ describe('applyPatches', () => {
   })
 })
 
+describe('setPatch', () => {
+  it('sets, replaces and removes one matrix cell', () => {
+    let p = setPatch([], 'port', 'voice.note', 0.5)
+    p = setPatch(p, 'port', 'voice.note', -0.2)
+    expect(p).toEqual([{ source: 'port', target: 'voice.note', amount: -0.2 }])
+    expect(setPatch(p, 'port', 'voice.note', 0)).toEqual([])
+  })
+})
+
+describe('shapePartials', () => {
+  it('starts as a pure sine and morphs toward richer spectra', () => {
+    const sine = shapePartials(0, 1)
+    expect(sine[0]).toBe(1)
+    expect(sine.slice(1).every((x) => x === 0)).toBe(true)
+    expect(shapePartials(0.25, 1).filter((x) => x > 0).length).toBe(24)
+    expect(shapePartials(1, 1)[1]).toBe(0)
+  })
+})
+
 describe('noteFor', () => {
   it('stays in the scale and spans the range', () => {
     const lo = noteFor(0, 0, 'A', 'minor')
@@ -81,25 +99,26 @@ describe('noteFor', () => {
 describe('settings', () => {
   it('round-trips through the hash', () => {
     const s = structuredClone(DEFAULTS)
-    s.knobs['osc.fm'] = 0.77
-    s.patches.push({ source: 'lfo', target: 'color.hue', amount: -0.25 })
+    s.knobs['osc1.warp'] = 0.77
+    s.patches.push({ source: 'threat', target: 'osc2.spread', amount: -0.25 })
     s.scale = 'dorian'
     expect(decodeSettings(encodeSettings(s))).toEqual(s)
   })
 
   it('rejects garbage, old versions and bad patches', () => {
     expect(decodeSettings('!!!not-base64')).toBeNull()
-    expect(sanitize({ version: 1, root: 'C' }).root).toBe(DEFAULTS.root)
+    expect(sanitize({ version: 2, root: 'C' }).root).toBe(DEFAULTS.root)
     const s = sanitize({
-      version: 2,
-      knobs: { 'osc.fm': 5 },
+      version: 3,
+      knobs: { 'osc1.warp': 5 },
       patches: [
         { source: 'nope', target: 'voice.note', amount: 0.5 },
-        { source: 'port', target: 'reverb.size', amount: 0.5 },
+        { source: 'port', target: 'fx.size', amount: 0.5 },
         { source: 'port', target: 'voice.note', amount: 0.5 },
+        { source: 'port', target: 'voice.note', amount: 0.9 },
       ],
     })
-    expect(s.knobs['osc.fm']).toBe(DEFAULTS.knobs['osc.fm'])
+    expect(s.knobs['osc1.warp']).toBe(DEFAULTS.knobs['osc1.warp'])
     expect(s.patches).toEqual([{ source: 'port', target: 'voice.note', amount: 0.5 }])
   })
 

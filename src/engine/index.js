@@ -4,7 +4,7 @@ import { loadDataset } from './isc.js'
 import { applyPatches } from './params.js'
 import { createSampler } from './sampler.js'
 import { DEFAULTS } from './settings.js'
-import { createSynth, expMap } from './synth.js'
+import { createSynth } from './synth.js'
 
 const REFRESH_MS = 4 * 60 * 1000
 const DENSITY_WINDOW_MS = 5000
@@ -40,7 +40,6 @@ export function createEngine({ canvas, snapshotUrl, onEvent, onStatus }) {
     sources.tick(dt, {
       density: recent.length,
       threat: running && data ? data.threat : 0,
-      lfoRate: expMap(settings.knobs['lfo.rate'], 0.01, 0.5),
     })
     const values = applyPatches(settings.knobs, settings.patches, sources.smooth, 'continuous')
     field.render(values, dt)

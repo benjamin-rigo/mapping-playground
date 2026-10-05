@@ -7,65 +7,66 @@ const patch = (source, target, amount) => ({ source, target, amount })
 
 const preset = (name, knobs, patches, extra = {}) => ({
   name,
-  settings: { version: 2, knobs: { ...DEFAULT_KNOBS, ...knobs }, patches, root: 'A', scale: 'minor', master: 0.8, ...extra },
+  settings: { version: 3, knobs: { ...DEFAULT_KNOBS, ...knobs }, patches, root: 'A', scale: 'minor', master: 0.8, ...extra },
 })
 
 export const PRESETS = [
   preset(
     'Glass rain',
-    { 'impact.y': 0.05, 'impact.x': 0.05, 'voice.note': 0.1, 'color.hue': 0.6, 'color.contrast': 0.35, 'texture.softness': 0.75, 'distort.ripple': 0.3 },
+    { 'impact.y': 0.05, 'impact.x': 0.05, 'voice.note': 0.1 },
     [
       patch('port', 'voice.note', 0.8),
       patch('ipVol', 'voice.level', 0.3),
       patch('ip', 'voice.pan', 0.9),
+      patch('portPop', 'osc1.shape', 0.4),
+      patch('portPop', 'filter.cutoff', 0.3),
+      patch('threat', 'fx.drive', 0.5),
       patch('ip', 'impact.x', 0.9),
       patch('port', 'impact.y', 0.9),
       patch('ipVol', 'impact.size', 0.4),
-      patch('random', 'distort.push', -0.5),
       patch('density', 'field.turbulence', 0.4),
-      patch('threat', 'drive.drive', 0.5),
-      patch('lfo', 'color.hue', 0.03),
-      patch('portPop', 'filter.cutoff', 0.3),
+      patch('density', 'distort.ripple', 0.4),
     ],
   ),
   preset(
     'Low tide',
     {
-      'voice.range': 0.2, 'voice.level': 0.45, 'osc.wave': 0.66, 'osc.fm': 0, 'env.attack': 0.45, 'env.decay': 0.7,
-      'env.sustain': 0.5, 'env.release': 0.8, 'filter.cutoff': 0.35, 'filter.env': 0.2, 'reverb.size': 0.9, 'reverb.mix': 0.55,
-      'drone.level': 0.6, 'drone.tone': 0.25, 'drone.motion': 0.5, 'field.flow': 0.12, 'field.turbulence': 0.3, 'field.scale': 0.2,
-      'color.hue': 0.55, 'color.contrast': 0.3, 'impact.strength': 0.35, 'impact.decay': 0.8, 'impact.size': 0.6,
-      'distort.swirl': 0.25, 'distort.push': 0.5, 'distort.ripple': 0.7,
+      'voice.range': 0.2, 'voice.level': 0.5, 'osc1.shape': 0.6, 'osc1.warp': 0, 'osc2.level': 0.5, 'osc2.shape': 0.3,
+      'osc2.spread': 0.5, 'amp.attack': 0.45, 'amp.decay': 0.7, 'amp.sustain': 0.5, 'amp.release': 0.8, 'filter.cutoff': 0.35,
+      'filter.env': 0.2, 'fx.size': 0.9, 'fx.reverb': 0.6, 'drone.level': 0.6, 'drone.tone': 0.25, 'drone.motion': 0.5,
+      'field.flow': 0.12, 'field.turbulence': 0.3, 'field.scale': 0.2, 'color.hue': 0.55, 'color.contrast': 0.3,
+      'impact.strength': 0.35, 'impact.decay': 0.8, 'impact.size': 0.6, 'distort.swirl': 0.25, 'distort.push': 0.5, 'distort.ripple': 0.7,
     },
     [
       patch('port', 'voice.note', 0.6),
+      patch('ipVol', 'osc1.shape', 0.4),
+      patch('density', 'filter.cutoff', 0.3),
       patch('density', 'drone.tone', 0.4),
-      patch('lfo', 'field.flow', 0.15),
       patch('ip', 'impact.x', 0.9),
       patch('ipVol', 'impact.y', 0.8),
       patch('threat', 'color.hue', -0.4),
-      patch('random', 'voice.chance', -0.6),
     ],
     { scale: 'dorian', root: 'D' },
   ),
   preset(
     'Static storm',
     {
-      'osc.wave': 1, 'osc.fm': 0.55, 'osc.ratio': 0.83, 'osc.noise': 0.35, 'env.attack': 0, 'env.decay': 0.15, 'env.sustain': 0,
-      'env.release': 0.15, 'filter.reso': 0.55, 'filter.env': 0.7, 'drive.drive': 0.45, 'drive.crush': 0.4, 'delay.time': 0.15,
-      'delay.feedback': 0.55, 'delay.mix': 0.35, 'reverb.mix': 0.15, 'drone.level': 0.1, 'field.turbulence': 0.85,
-      'field.flow': 0.6, 'field.scale': 0.6, 'color.hue': 0.98, 'color.saturation': 0.9, 'color.contrast': 0.8,
-      'texture.grain': 0.8, 'texture.softness': 0.2, 'impact.strength': 0.8, 'impact.decay': 0.2, 'impact.ink': 0.6,
-      'distort.swirl': 0.3, 'distort.shatter': 0.7, 'distort.smear': 0.6, 'distort.pixelate': 0.35, 'distort.tint': 0.4,
+      'osc1.shape': 0.4, 'osc1.warp': 0.6, 'osc1.ratio': 0.8, 'sub.noise': 0.35, 'sub.color': 0.1, 'amp.attack': 0, 'amp.decay': 0.15,
+      'amp.sustain': 0, 'amp.release': 0.15, 'filter.res': 0.55, 'filter.env': 0.7, 'filter.morph': 0.5, 'fx.drive': 0.45,
+      'fx.crush': 0.4, 'fx.time': 0.15, 'fx.feedback': 0.55, 'fx.delay': 0.35, 'fx.reverb': 0.15, 'drone.level': 0.1,
+      'field.turbulence': 0.85, 'field.flow': 0.6, 'field.scale': 0.6, 'color.hue': 0.98, 'color.saturation': 0.9,
+      'color.contrast': 0.8, 'texture.grain': 0.8, 'texture.softness': 0.2, 'impact.strength': 0.8, 'impact.decay': 0.2,
+      'impact.ink': 0.6, 'distort.swirl': 0.3, 'distort.shatter': 0.7, 'distort.smear': 0.6, 'distort.pixelate': 0.35, 'distort.tint': 0.4,
     },
     [
-      patch('port', 'filter.cutoff', 0.6),
-      patch('density', 'drive.crush', 0.5),
       patch('ip', 'voice.note', 0.9),
+      patch('ipVol', 'osc1.warp', 0.4),
+      patch('port', 'filter.cutoff', 0.6),
+      patch('density', 'fx.crush', 0.5),
       patch('ip', 'impact.x', 0.9),
-      patch('random', 'impact.y', 1),
-      patch('density', 'field.turbulence', 0.3),
+      patch('portPop', 'impact.y', 1),
       patch('ipVol', 'impact.strength', 0.4),
+      patch('density', 'field.turbulence', 0.3),
       patch('density', 'distort.shatter', 0.3),
       patch('portPop', 'distort.tint', 0.5),
     ],
@@ -79,12 +80,13 @@ const isNum = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >=
 
 export function sanitize(input) {
   const out = structuredClone(DEFAULTS)
-  if (!input || typeof input !== 'object' || input.version !== 2) return out
+  if (!input || typeof input !== 'object' || input.version !== 3) return out
   for (const key of Object.keys(out.knobs)) if (isNum(input.knobs?.[key], 0, 1)) out.knobs[key] = input.knobs[key]
   if (Array.isArray(input.patches)) {
     out.patches = input.patches
       .filter((x) => x && SOURCE_IDS.includes(x.source) && PARAM_BY_KEY[x.target]?.patchable && isNum(x.amount, -1, 1))
-      .slice(0, 32)
+      .filter((x, i, all) => all.findIndex((y) => y.source === x.source && y.target === x.target) === i)
+      .slice(0, 64)
       .map(({ source, target, amount }) => ({ source, target, amount }))
   }
   if (ROOTS.includes(input.root)) out.root = input.root
