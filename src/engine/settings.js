@@ -1,91 +1,90 @@
-export const FIELDS = [
-  { id: 'port', label: 'Port' },
-  { id: 'portPop', label: 'Port popularity' },
-  { id: 'ip', label: 'Attacker IP' },
-  { id: 'ipVol', label: 'Attacker volume' },
-  { id: 'density', label: 'Density' },
-  { id: 'threat', label: 'Threat level' },
-  { id: 'random', label: 'Random' },
-  { id: 'off', label: 'Off' },
-]
-
-export const SOUND_PARAMS = [
-  { id: 'pitch', label: 'Pitch' },
-  { id: 'volume', label: 'Volume' },
-  { id: 'filter', label: 'Filter cutoff' },
-  { id: 'distortion', label: 'Distortion' },
-  { id: 'reverb', label: 'Reverb' },
-  { id: 'delay', label: 'Delay' },
-  { id: 'pan', label: 'Pan' },
-  { id: 'probability', label: 'Probability' },
-]
-
-export const VISUAL_PARAMS = [
-  { id: 'posX', label: 'Position X' },
-  { id: 'posY', label: 'Position Y' },
-  { id: 'size', label: 'Blob size' },
-  { id: 'softness', label: 'Softness' },
-  { id: 'ink', label: 'Ink strength' },
-  { id: 'glitch', label: 'Glitch' },
-  { id: 'fade', label: 'Fade speed' },
-  { id: 'accent', label: 'Accent mix' },
-]
+import { DEFAULT_KNOBS, PARAM_BY_KEY, SOURCE_IDS } from './params.js'
 
 export const ROOTS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-export const SCALES = ['minor', 'major', 'pentatonic', 'chromatic']
-export const VOICES = ['pluck', 'bell', 'noise', 'kick']
-export const ACCENTS = ['#ff3b1f', '#ff8a00', '#2f5bff', '#00a37a']
+export const SCALES = ['minor', 'major', 'pentatonic', 'dorian', 'chromatic']
 
-const m = (source, base, amount) => ({ source, base, amount })
+const patch = (source, target, amount) => ({ source, target, amount })
 
-export const DEFAULTS = {
-  version: 1,
-  mappings: {
-    pitch: m('port', 0.15, 0.7),
-    volume: m('ipVol', 0.45, 0.45),
-    filter: m('off', 0.6, 0.5),
-    distortion: m('threat', 0.05, 0.6),
-    reverb: m('off', 0.45, 0.5),
-    delay: m('off', 0.15, 0.5),
-    pan: m('ip', 0.1, 0.8),
-    probability: m('off', 0.7, 0.5),
-    posX: m('ip', 0.05, 0.9),
-    posY: m('port', 0.9, -0.8),
-    size: m('ipVol', 0.15, 0.6),
-    softness: m('off', 0.7, 0.5),
-    ink: m('off', 0.6, 0.5),
-    glitch: m('density', 0, 0.8),
-    fade: m('off', 0.35, 0.5),
-    accent: m('density', 0, 0.9),
-  },
-  tuning: { root: 'A', scale: 'minor', voice: 'pluck', chords: true, master: 0.8 },
-  look: { grid: 0.5, grain: 0.4, accent: ACCENTS[0], annotations: true },
-}
+const preset = (name, knobs, patches, extra = {}) => ({
+  name,
+  settings: { version: 2, knobs: { ...DEFAULT_KNOBS, ...knobs }, patches, root: 'A', scale: 'minor', master: 0.8, ...extra },
+})
+
+export const PRESETS = [
+  preset(
+    'Glass rain',
+    { 'impact.y': 0.05, 'impact.x': 0.05, 'voice.note': 0.1, 'color.hue': 0.6, 'color.contrast': 0.35, 'texture.softness': 0.75 },
+    [
+      patch('port', 'voice.note', 0.8),
+      patch('ipVol', 'voice.level', 0.3),
+      patch('ip', 'voice.pan', 0.9),
+      patch('ip', 'impact.x', 0.9),
+      patch('port', 'impact.y', 0.9),
+      patch('ipVol', 'impact.size', 0.4),
+      patch('density', 'field.turbulence', 0.4),
+      patch('threat', 'drive.drive', 0.5),
+      patch('lfo', 'color.hue', 0.03),
+      patch('portPop', 'filter.cutoff', 0.3),
+    ],
+  ),
+  preset(
+    'Low tide',
+    {
+      'voice.range': 0.2, 'voice.level': 0.45, 'osc.wave': 0.66, 'osc.fm': 0, 'env.attack': 0.45, 'env.decay': 0.7,
+      'env.sustain': 0.5, 'env.release': 0.8, 'filter.cutoff': 0.35, 'filter.env': 0.2, 'reverb.size': 0.9, 'reverb.mix': 0.55,
+      'drone.level': 0.6, 'drone.tone': 0.25, 'drone.motion': 0.5, 'field.flow': 0.12, 'field.turbulence': 0.3, 'field.scale': 0.2,
+      'color.hue': 0.55, 'color.contrast': 0.3, 'impact.strength': 0.35, 'impact.decay': 0.8, 'impact.size': 0.6,
+    },
+    [
+      patch('port', 'voice.note', 0.6),
+      patch('density', 'drone.tone', 0.4),
+      patch('lfo', 'field.flow', 0.15),
+      patch('ip', 'impact.x', 0.9),
+      patch('ipVol', 'impact.y', 0.8),
+      patch('threat', 'color.hue', -0.4),
+      patch('random', 'voice.chance', -0.6),
+    ],
+    { scale: 'dorian', root: 'D' },
+  ),
+  preset(
+    'Static storm',
+    {
+      'osc.wave': 1, 'osc.fm': 0.55, 'osc.ratio': 0.83, 'osc.noise': 0.35, 'env.attack': 0, 'env.decay': 0.15, 'env.sustain': 0,
+      'env.release': 0.15, 'filter.reso': 0.55, 'filter.env': 0.7, 'drive.drive': 0.45, 'drive.crush': 0.4, 'delay.time': 0.15,
+      'delay.feedback': 0.55, 'delay.mix': 0.35, 'reverb.mix': 0.15, 'drone.level': 0.1, 'field.turbulence': 0.85,
+      'field.flow': 0.6, 'field.scale': 0.6, 'color.hue': 0.98, 'color.saturation': 0.9, 'color.contrast': 0.8,
+      'texture.grain': 0.8, 'texture.softness': 0.2, 'impact.strength': 0.8, 'impact.swirl': 0.9, 'impact.decay': 0.2,
+    },
+    [
+      patch('port', 'filter.cutoff', 0.6),
+      patch('density', 'drive.crush', 0.5),
+      patch('ip', 'voice.note', 0.9),
+      patch('ip', 'impact.x', 0.9),
+      patch('random', 'impact.y', 1),
+      patch('density', 'field.turbulence', 0.3),
+      patch('ipVol', 'impact.strength', 0.4),
+    ],
+    { scale: 'chromatic', root: 'E' },
+  ),
+]
+
+export const DEFAULTS = PRESETS[0].settings
 
 const isNum = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi
-const sourceIds = new Set(FIELDS.map((f) => f.id))
 
 export function sanitize(input) {
   const out = structuredClone(DEFAULTS)
-  if (!input || typeof input !== 'object') return out
-  for (const [id, def] of Object.entries(out.mappings)) {
-    const v = input.mappings?.[id]
-    if (!v) continue
-    if (sourceIds.has(v.source)) def.source = v.source
-    if (isNum(v.base, 0, 1)) def.base = v.base
-    if (isNum(v.amount, -1, 1)) def.amount = v.amount
+  if (!input || typeof input !== 'object' || input.version !== 2) return out
+  for (const key of Object.keys(out.knobs)) if (isNum(input.knobs?.[key], 0, 1)) out.knobs[key] = input.knobs[key]
+  if (Array.isArray(input.patches)) {
+    out.patches = input.patches
+      .filter((x) => x && SOURCE_IDS.includes(x.source) && PARAM_BY_KEY[x.target]?.patchable && isNum(x.amount, -1, 1))
+      .slice(0, 32)
+      .map(({ source, target, amount }) => ({ source, target, amount }))
   }
-  const t = input.tuning ?? {}
-  if (ROOTS.includes(t.root)) out.tuning.root = t.root
-  if (SCALES.includes(t.scale)) out.tuning.scale = t.scale
-  if (VOICES.includes(t.voice)) out.tuning.voice = t.voice
-  if (typeof t.chords === 'boolean') out.tuning.chords = t.chords
-  if (isNum(t.master, 0, 1)) out.tuning.master = t.master
-  const l = input.look ?? {}
-  if (isNum(l.grid, 0, 1)) out.look.grid = l.grid
-  if (isNum(l.grain, 0, 1)) out.look.grain = l.grain
-  if (ACCENTS.includes(l.accent)) out.look.accent = l.accent
-  if (typeof l.annotations === 'boolean') out.look.annotations = l.annotations
+  if (ROOTS.includes(input.root)) out.root = input.root
+  if (SCALES.includes(input.scale)) out.scale = input.scale
+  if (isNum(input.master, 0, 1)) out.master = input.master
   return out
 }
 

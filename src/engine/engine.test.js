@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { normalize, resolve } from './fields.js'
+import { createSources, normalize } from './fields.js'
 import { parseDataset } from './isc.js'
 import { createSampler, pickWeighted } from './sampler.js'
-import { DEFAULTS, decodeSettings, encodeSettings, sanitize } from './settings.js'
+import { DEFAULT_KNOBS, applyPatches } from './params.js'
+import { DEFAULTS, PRESETS, decodeSettings, encodeSettings, sanitize } from './settings.js'
+import { noteFor } from './synth.js'
 
 const snapshot = JSON.parse(readFileSync(new URL('../../public/snapshot.json', import.meta.url)))
 
@@ -13,55 +15,96 @@ const seeded = (seed = 1) => () => {
 }
 
 describe('normalize', () => {
-  const ctx = { maxPortW: 1000, maxIpW: 1000, density: 15, threat: 0.33 }
-  const ev = { ip: '204.1.2.3', ipWeight: 1000, port: 22, portWeight: 1 }
-
-  it('maps fields into 0..1', () => {
-    const f = normalize(ev, ctx, () => 0.5)
+  it('maps event fields into 0..1', () => {
+    const f = normalize({ ip: '204.1.2.3', ipWeight: 1000, port: 22, portWeight: 1 }, { maxPortW: 1000, maxIpW: 1000 }, () => 0.5)
     expect(f.port).toBeCloseTo(Math.log(22) / Math.log(65535))
     expect(f.portPop).toBe(0)
     expect(f.ipVol).toBe(1)
     expect(f.ip).toBeCloseTo(204 / 255)
-    expect(f.density).toBe(0.5)
-    expect(f.threat).toBe(0.33)
     expect(f.random).toBe(0.5)
-    expect(f.off).toBe(0)
-  })
-
-  it('clamps density', () => {
-    expect(normalize(ev, { ...ctx, density: 99 }).density).toBe(1)
   })
 })
 
-describe('resolve', () => {
-  const fields = { port: 0.5, off: 0 }
+describe('sources', () => {
+  it('smooths toward the latest values and clamps density', () => {
+    const s = createSources()
+    s.onEvent({ port: 1 })
+    s.tick(0.1, { density: 90, threat: 0.5, lfoRate: 0.1 })
+    expect(s.latest.density).toBe(1)
+    expect(s.smooth.port).toBeGreaterThan(0)
+    expect(s.smooth.port).toBeLessThan(0.2)
+    for (let i = 0; i < 100; i++) s.tick(0.1, { density: 0, threat: 0.5, lfoRate: 0.1 })
+    expect(s.smooth.port).toBeCloseTo(1)
+    expect(s.smooth.threat).toBeCloseTo(0.5)
+  })
+})
 
-  it('applies base + amount * input', () => {
-    expect(resolve({ source: 'port', base: 0.2, amount: 0.5 }, fields)).toBeCloseTo(0.45)
+describe('applyPatches', () => {
+  const knobs = { ...DEFAULT_KNOBS, 'voice.note': 0.2, 'field.flow': 0.9 }
+
+  it('adds amount * source and clamps', () => {
+    const v = applyPatches(knobs, [{ source: 'port', target: 'voice.note', amount: 0.5 }], { port: 0.5 })
+    expect(v['voice.note']).toBeCloseTo(0.45)
+    const w = applyPatches(knobs, [{ source: 'port', target: 'field.flow', amount: 1 }], { port: 1 })
+    expect(w['field.flow']).toBe(1)
   })
 
-  it('inverts with negative amount and clamps', () => {
-    expect(resolve({ source: 'port', base: 0.1, amount: -1 }, fields)).toBe(0)
-    expect(resolve({ source: 'port', base: 0.9, amount: 1 }, fields)).toBe(1)
+  it('sums several patches on one knob and inverts with negative amount', () => {
+    const patches = [
+      { source: 'port', target: 'voice.note', amount: 0.4 },
+      { source: 'ip', target: 'voice.note', amount: -0.2 },
+    ]
+    expect(applyPatches(knobs, patches, { port: 1, ip: 1 })['voice.note']).toBeCloseTo(0.4)
   })
 
-  it('uses base only when off', () => {
-    expect(resolve({ source: 'off', base: 0.3, amount: 1 }, fields)).toBe(0.3)
+  it('only applies patches of the requested kind', () => {
+    const patches = [
+      { source: 'port', target: 'voice.note', amount: 0.5 },
+      { source: 'port', target: 'field.flow', amount: -0.5 },
+    ]
+    const v = applyPatches(knobs, patches, { port: 1 }, 'continuous')
+    expect(v['voice.note']).toBe(0.2)
+    expect(v['field.flow']).toBeCloseTo(0.4)
+  })
+})
+
+describe('noteFor', () => {
+  it('stays in the scale and spans the range', () => {
+    const lo = noteFor(0, 0, 'A', 'minor')
+    const hi = noteFor(1, 0, 'A', 'minor')
+    expect(hi - lo).toBe(12)
+    expect(noteFor(1, 1, 'A', 'minor') - noteFor(0, 1, 'A', 'minor')).toBe(48)
+    expect((noteFor(0.5, 0.5, 'C', 'pentatonic') % 12 + 12) % 12).toSatisfy((pc) => [0, 3, 5, 7, 10].includes(pc))
   })
 })
 
 describe('settings', () => {
   it('round-trips through the hash', () => {
     const s = structuredClone(DEFAULTS)
-    s.mappings.pitch = { source: 'random', base: 0.4, amount: -0.25 }
-    s.tuning.scale = 'major'
+    s.knobs['osc.fm'] = 0.77
+    s.patches.push({ source: 'lfo', target: 'color.hue', amount: -0.25 })
+    s.scale = 'dorian'
     expect(decodeSettings(encodeSettings(s))).toEqual(s)
   })
 
-  it('returns null for garbage and fills gaps with defaults', () => {
+  it('rejects garbage, old versions and bad patches', () => {
     expect(decodeSettings('!!!not-base64')).toBeNull()
-    const s = sanitize({ mappings: { pitch: { source: 'nope', base: 5, amount: 0.5 } } })
-    expect(s.mappings.pitch).toEqual({ ...DEFAULTS.mappings.pitch, amount: 0.5 })
+    expect(sanitize({ version: 1, root: 'C' }).root).toBe(DEFAULTS.root)
+    const s = sanitize({
+      version: 2,
+      knobs: { 'osc.fm': 5 },
+      patches: [
+        { source: 'nope', target: 'voice.note', amount: 0.5 },
+        { source: 'port', target: 'reverb.size', amount: 0.5 },
+        { source: 'port', target: 'voice.note', amount: 0.5 },
+      ],
+    })
+    expect(s.knobs['osc.fm']).toBe(DEFAULTS.knobs['osc.fm'])
+    expect(s.patches).toEqual([{ source: 'port', target: 'voice.note', amount: 0.5 }])
+  })
+
+  it('ships presets that survive sanitize unchanged', () => {
+    for (const p of PRESETS) expect(sanitize(p.settings)).toEqual(p.settings)
   })
 })
 

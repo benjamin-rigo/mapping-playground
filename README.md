@@ -8,9 +8,11 @@ Companion to `../cyber_attack_sonification` (the reference piece shown in the op
 
 ## How it works
 
-- **Data:** SANS Internet Storm Center (DShield): top targeted ports, top attacking IPs and the infocon threat level. These are fetched straight from the browser (the ISC API allows CORS) and refreshed every 4 minutes. They are sampled into a stream of about 3 events per second, with occasional port-scan bursts. If the API is unreachable, the bundled `public/snapshot.json` is used, and the badge shows "Offline".
-- **Mapping:** every sound and visual parameter has three controls: "driven by" (Port, Port popularity, Attacker IP, Attacker volume, Density, Threat level, Random, Off), Base and Amount (−100% to +100%). The value is `clamp(base + amount * field)`, and every field is normalized to 0..1.
-- **Sharing:** settings live in the URL hash. "Copy link" shares an exact setup.
+- **Data:** SANS Internet Storm Center (DShield): top targeted ports, top attacking IPs and the infocon threat level. These are fetched straight from the browser (the ISC API allows CORS) and refreshed every 4 minutes. They are sampled into a stream of about 3 events per second, with occasional port-scan bursts. If the API is unreachable, the bundled `public/snapshot.json` is used.
+- **Sound:** a small modular synth on raw Web Audio. Every event plays one note through Voice, Oscillator (wave morph, FM, detune, noise), Envelope, Filter, Drive/Crush, Delay and Reverb. A Drone module plays a slow chord bed underneath.
+- **Visual:** a WebGL domain-warped noise field (Field, Color, Texture). Each event lands as an Impact, a short swirl that also adds ink.
+- **Patches:** any source (Port, Port popularity, Attacker IP, Attacker volume, Density, Threat level, Random, LFO) can drive any knob, with an amount from −100% to +100%. Event-rate knobs get the event's own values. Continuous knobs (Drone, Field, Color, Texture) get smoothed followers, so they glide.
+- **Presets and sharing:** three starting points (Glass rain, Low tide, Static storm). All settings live in the URL hash, so "Copy link" shares an exact patch.
 
 ## Develop
 
@@ -26,8 +28,9 @@ A push to `main` deploys to GitHub Pages via `.github/workflows/pages.yml`.
 ## Structure
 
 ```
-src/engine/   framework-free: isc.js (data), sampler.js, fields.js (normalize + mapping),
-              audio.js (Tone.js), visuals.js (halftone canvas), settings.js, index.js (wiring)
+src/engine/   framework-free: isc.js (data), sampler.js, fields.js (normalize + smoothed sources),
+              params.js (module/knob registry + applyPatches), synth.js (Web Audio),
+              field.js (WebGL shader), settings.js (presets + URL hash), index.js (wiring)
 src/components/  React + shadcn/ui controls
 legacy/index-v1.html  the previous single-file version (four data sources)
 docs/superpowers/specs/  design spec

@@ -3,27 +3,38 @@ const logRatio = (v, max) => (max > 1 ? clamp01(Math.log(Math.max(1, v)) / Math.
 
 export const THREAT = { green: 0, yellow: 0.33, orange: 0.66, red: 1 }
 
-// ctx: { maxPortW, maxIpW, density (events in window), threat (0..1) }
+// Per-event source values, all 0..1. ctx: { maxPortW, maxIpW }
 export function normalize(event, ctx, rand = Math.random) {
   return {
     port: clamp01(Math.log(Math.max(1, event.port)) / Math.log(65535)),
     portPop: logRatio(event.portWeight, ctx.maxPortW),
     ip: (Number(event.ip.split('.')[0]) || 0) / 255,
     ipVol: logRatio(event.ipWeight, ctx.maxIpW),
-    density: clamp01(ctx.density / 30),
-    threat: ctx.threat,
     random: rand(),
-    off: 0,
   }
 }
 
-export function resolve(mapping, fields) {
-  const input = mapping.source === 'off' ? 0 : fields[mapping.source]
-  return clamp01(mapping.base + mapping.amount * input)
-}
+// Holds the latest per-event values plus smoothed followers of every source, so
+// continuous targets (drone, visual field) glide instead of jumping per event.
+export function createSources() {
+  const latest = { port: 0, portPop: 0, ip: 0, ipVol: 0, random: 0, density: 0, threat: 0, lfo: 0.5 }
+  const smooth = { ...latest }
+  let phase = 0
 
-export function resolveAll(mappings, fields) {
-  const out = {}
-  for (const [id, mapping] of Object.entries(mappings)) out[id] = resolve(mapping, fields)
-  return out
+  return {
+    latest,
+    smooth,
+    onEvent(fields) {
+      Object.assign(latest, fields)
+    },
+    tick(dt, { density, threat, lfoRate }) {
+      phase += dt * lfoRate * Math.PI * 2
+      latest.density = clamp01(density / 30)
+      latest.threat = threat
+      latest.lfo = 0.5 + 0.5 * Math.sin(phase)
+      const k = 1 - Math.exp(-dt / 0.8)
+      for (const key in latest) smooth[key] += (latest[key] - smooth[key]) * k
+      smooth.lfo = latest.lfo
+    },
+  }
 }

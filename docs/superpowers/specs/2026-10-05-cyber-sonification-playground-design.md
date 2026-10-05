@@ -1,7 +1,7 @@
 # Cyber Sonification Playground — Design
 
 Date: 2026-10-05
-Status: draft, awaiting review
+Status: implemented; revised 2026-10-05 (see Revision 2)
 
 ## Purpose
 
@@ -137,3 +137,19 @@ Data flow: `sampler.onEvent(e)` → `fields.normalize(e, context)` → `mapping`
 - Vitest unit tests for the pure logic: field normalization, mapping math (including negative amount and clamping), settings hash round-trip and invalid-hash handling, ISC response parsing (using snapshot fixtures), and sampler weighting and bursts (seeded random).
 - Manual browser check: live data arrives, every control audibly or visibly changes the output, a copied link restores the settings in a new tab, the offline fallback works (block the network in devtools), and the layout holds at 375 px width.
 - Known pitfalls carried over from the reference project: wrap `setTimeout` in arrow functions (avoids "Illegal invocation"), and guard audio setters until `audio.ready`.
+
+## Revision 2 (2026-10-05): modular engine
+
+The first build felt rigid: fixed voices (Pluck, Bell…) and a halftone dot canvas. Feedback was to make it feel like a simple modular synth and to move the visuals toward soft, grainy, fluid noise fields. The sections above on Mapping, Audio, Visuals and Defaults are superseded by this one.
+
+- **Knobs and modules** (`src/engine/params.js`): every knob is 0..1 and belongs to a module.
+  - Sound modules: Voice (note, range, level, pan, chance), Oscillator (wave morph sine→triangle→saw→square, FM amount, FM ratio, detune, noise), Envelope (ADSR), Filter (cutoff, resonance, envelope amount), Drive (drive, crush), Delay (time, feedback, mix), Reverb (size, mix), Drone (level, tone, motion).
+  - Visual modules: Field (scale, turbulence, flow, detail), Color (hue, spread, saturation, contrast, paper), Texture (grain, softness), Impact (x, y, size, strength, swirl, decay).
+  - Mod module: LFO (rate).
+- **Patches:** a list of `{source, target, amount}`. Any source can drive any patchable knob (Reverb size and LFO rate are not patchable), several patches can stack on one knob, and the result is `clamp01(knob + Σ amount × source)`.
+- **Sources:** the five per-event fields, plus Density, Threat and LFO. Event-kind modules use the latest values at each event. Continuous modules (Drone, Field, Color, Texture, LFO) use exponential followers (τ ≈ 0.8 s).
+- **Audio:** raw Web Audio replaces Tone.js. One voice graph is built per event (up to 24 at once), and it feeds a shared waveshaper (drive + bit crush), then delay and a convolution reverb (impulse regenerated when Size changes). A 4-oscillator drone moves through a chord progression every 10 s, with detune and filter LFOs scaled by Motion.
+- **Visual:** a WebGL fragment shader with domain-warped fbm, smoothstep-thresholded between paper and ink colors (HSL from Color), plus animated grain. It renders at 0.6× resolution, which adds softness. Up to 16 live impacts warp the field (a swirl or push mix) and add ink.
+- **Presets:** Glass rain (default), Low tide and Static storm. A preset is just a settings object.
+- **Settings v2:** `{ version: 2, knobs, patches, root, scale, master }`. v1 links fall back to the defaults.
+- **UI:** three tabs. Sound and Visual are module cards with knobs, and an orange dot marks a patched knob. Patch has the LFO, patch rows (source → target, amount, a live source meter) and live meters for every source.
