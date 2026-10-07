@@ -63,16 +63,16 @@ function AmountCell({ amount, source, label, onChange }) {
       }}
       className={cn(
         'relative flex h-7 cursor-ns-resize touch-none items-center justify-center overflow-hidden rounded font-mono text-[11px] tabular-nums outline-none select-none focus-visible:ring-2 focus-visible:ring-ring',
-        amount === 0 ? 'text-muted-foreground/50 hover:bg-muted' : amount > 0 ? 'text-orange-100' : 'text-sky-100',
+        amount === 0 ? 'text-muted-foreground/50 hover:bg-muted' : amount > 0 ? 'text-white' : 'text-sky-100',
       )}
       style={
         amount !== 0
-          ? { background: amount > 0 ? `rgba(251,146,60,${0.15 + Math.abs(amount) * 0.55})` : `rgba(56,189,248,${0.15 + Math.abs(amount) * 0.55})` }
+          ? { background: amount > 0 ? `rgba(255,255,255,${0.1 + Math.abs(amount) * 0.35})` : `rgba(56,189,248,${0.15 + Math.abs(amount) * 0.55})` }
           : undefined
       }
     >
       {amount === 0 ? '·' : `${pct > 0 ? '+' : ''}${pct}`}
-      {amount !== 0 && <div ref={bar} className="pointer-events-none absolute bottom-0 h-1 bg-white/80" aria-hidden />}
+      {amount !== 0 && <div ref={bar} className="pointer-events-none absolute bottom-0 h-1 bg-white" aria-hidden />}
     </div>
   )
 }
@@ -130,13 +130,13 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className, 
             <tr
               key={p.key}
               ref={(el) => (rowRefs.current[p.key] = el)}
-              className={cn(p.key === selected && '[&>*]:bg-orange-400/10')}
+              className={cn(p.key === selected && '[&>*]:bg-white/10')}
             >
               <th className="rounded-l pl-1 text-left font-normal">
                 <button
                   type="button"
                   onClick={() => onSelect(p.key)}
-                  className={cn('block w-full truncate py-0.5 text-left leading-tight outline-none focus-visible:underline', p.key === selected ? 'text-orange-300' : 'text-foreground')}
+                  className={cn('block w-full truncate py-0.5 text-left leading-tight outline-none focus-visible:underline', p.key === selected ? 'font-semibold text-white' : 'text-foreground')}
                 >
                   <span className="block truncate text-[10px] text-muted-foreground @[36rem]:inline @[36rem]:text-xs">
                     {p.module.label}

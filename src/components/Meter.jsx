@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useRef } from 'react'
 export const EngineContext = createContext(null)
 
 const HISTORY = 120 // samples, ~4 s at 30 Hz
-const ORANGE = '#fb923c'
+const LINE = '#ffffff'
 
 // A small oscilloscope for one source: its value over the last few seconds, a dashed
 // centre line for bipolar sources (no modulation there), and a tick at the bottom
@@ -48,7 +48,7 @@ export function SourceScope({ id, unipolar }) {
       g.stroke()
       g.setLineDash([])
 
-      g.strokeStyle = ORANGE
+      g.strokeStyle = LINE
       g.lineWidth = 1.5
       g.beginPath()
       for (let i = 0; i < HISTORY; i++) {
@@ -60,7 +60,7 @@ export function SourceScope({ id, unipolar }) {
       }
       g.stroke()
 
-      g.fillStyle = 'rgba(251,146,60,0.7)'
+      g.fillStyle = 'rgba(255,255,255,0.55)'
       for (let i = 0; i < HISTORY; i++) {
         if (ticks[(head + i) % HISTORY]) g.fillRect((i / (HISTORY - 1)) * w - 0.5, h - 3, 1, 3)
       }

@@ -23,7 +23,7 @@ function arc(from, to) {
 }
 
 // Drag up/down to turn; touching it selects it (highlights its row in the matrix);
-// double-click to reset. The faint orange arc is the modulation range; the bright
+// double-click to reset. The faint white arc is the modulation range; the bright
 // arc and dot show where the data is pushing it right now.
 export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, defaultValue, onChange, onSelect, selected, modNeg = 0, modPos = 0, display }) {
   const engine = useContext(EngineContext)
@@ -95,21 +95,28 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
         onKeyDown={onKeyDown}
         className={cn(
           'cursor-ns-resize touch-none rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-          selected && 'ring-2 ring-orange-400',
+          selected && 'ring-2 ring-white',
         )}
       >
         <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden>
           <path d={arc(0, 1)} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="text-muted" />
           {value > 0.005 && (
-            <path d={arc(0, value)} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="text-foreground" />
+            <path
+              d={arc(0, value)}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              className={modulated ? 'text-muted-foreground' : 'text-foreground'}
+            />
           )}
-          {modulated && <path d={arc(lo, hi)} fill="none" stroke="currentColor" strokeWidth="5" className="text-orange-400/25" />}
-          {modulated && <path ref={liveArc} fill="none" stroke="currentColor" strokeWidth="5" className="text-orange-400" />}
-          {modulated && <circle ref={liveDot} r="3.5" className="fill-orange-300" style={{ opacity: 0 }} />}
+          {modulated && <path d={arc(lo, hi)} fill="none" stroke="currentColor" strokeWidth="5" className="text-white/25" />}
+          {modulated && <path ref={liveArc} fill="none" stroke="currentColor" strokeWidth="5" className="text-white" />}
+          {modulated && <circle ref={liveDot} r="3.5" className="fill-white" style={{ opacity: 0 }} />}
           <circle cx={point(value, 9)[0]} cy={point(value, 9)[1]} r="2" className="fill-foreground" />
         </svg>
       </div>
-      <span className={cn('max-w-16 truncate text-[11px] leading-tight', selected ? 'text-orange-300' : 'text-muted-foreground')}>
+      <span className={cn('max-w-16 truncate text-[11px] leading-tight', selected ? 'font-medium text-white' : 'text-muted-foreground')}>
         {label}
       </span>
       <span className="font-mono text-[10px] leading-none tabular-nums text-muted-foreground/80">{display ?? value.toFixed(2)}</span>
