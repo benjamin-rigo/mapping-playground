@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Check, Dices, Link, Maximize, Minimize, Play, Square, Volume2 } from 'lucide-react'
+import { Check, Link, Maximize, Minimize, Play, Square, Volume2 } from 'lucide-react'
 import { EngineContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
 import { ModuleCard } from '@/components/ModuleCard'
@@ -11,7 +11,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createEngine } from '@/engine'
 import { MODULES, PARAM_BY_KEY } from '@/engine/params'
-import { DEFAULTS, PRESETS, decodeSettings, encodeSettings, randomSettings } from '@/engine/settings'
+import { DEFAULTS, PRESETS, decodeSettings, encodeSettings } from '@/engine/settings'
 
 const STATUS = {
   idle: { label: 'Stopped', variant: 'outline' },
@@ -208,16 +208,6 @@ export default function App() {
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setPreset('')
-              setSettings((s) => randomSettings(Math.random, s.master))
-            }}
-          >
-            <Dices /> Random
-          </Button>
           <label className="flex items-center gap-2 text-muted-foreground">
             <Volume2 className="size-4" aria-hidden />
             <Slider
