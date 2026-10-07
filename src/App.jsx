@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Check, Link, Maximize, Minimize, Play, Square, Volume2 } from 'lucide-react'
+import { AboutDialog } from '@/components/AboutDialog'
 import { EngineContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
 import { ModuleCard } from '@/components/ModuleCard'
@@ -208,7 +209,10 @@ export default function App() {
     <EngineContext.Provider value={engine}>
       <div className="flex h-dvh flex-col bg-background text-foreground">
         <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-          <h1 className="mr-auto text-sm font-semibold tracking-tight">Cyber Sonification Playground</h1>
+          <h1 className="text-sm font-semibold tracking-tight">Cyber Sonification Playground</h1>
+          <div className="mr-auto">
+            <AboutDialog />
+          </div>
           <Badge variant={STATUS[status].variant} aria-live="polite">
             {STATUS[status].label}
           </Badge>

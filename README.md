@@ -1,5 +1,7 @@
 # Mapping Playground
 
+Version 1.0.1
+
 A data sonification playground for the "Data to Sound" workshop at SAP Impulse (90 min). Every participant opens the link on their own laptop or phone and builds their own sound and visuals from the same live cyber-attack data.
 
 Live: https://benjamin-rigo.github.io/mapping-playground/
@@ -44,3 +46,8 @@ docs/superpowers/specs/  design spec
 
 - Workshop facilitator guide: Claude Docs, "Data to Sound Workshop Guide"
 - Printable A4 worksheet: `sonification-canvas-a4-en.pdf`
+
+## Credits
+
+© 2026 Benjamin Rigo. All rights reserved.
+Made with Claude by Anthropic. Attack data courtesy of the SANS Internet Storm Center (isc.sans.edu).
