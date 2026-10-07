@@ -10,8 +10,8 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createEngine } from '@/engine'
 import { expMap } from '@/engine/synth'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { MODULES, PARAM_BY_KEY } from '@/engine/params'
+import { ALGORITHMS, MODULES, algoIndex } from '@/engine/params'
+import { cn } from '@/lib/utils'
 import { DEFAULTS, PRESETS, ROOTS, SCALES, decodeSettings, encodeSettings } from '@/engine/settings'
 
 const STATUS = {
@@ -78,7 +78,6 @@ export default function App() {
   const [status, setStatus] = useState('idle')
   const [copied, setCopied] = useState(false)
   const [selected, setSelected] = useState(null)
-  const [tab, setTab] = useState('sound')
   const isDesktop = useIsDesktop()
 
   useEffect(() => {
@@ -108,10 +107,7 @@ export default function App() {
     setPreset('')
     setSettings((s) => ({ ...s, knobs: { ...s.knobs, [key]: v } }))
   }, [])
-  const select = useCallback((key) => {
-    setSelected(key)
-    setTab(PARAM_BY_KEY[key].module.group)
-  }, [])
+  const select = useCallback((key) => setSelected(key), [])
 
   function loadPreset(name) {
     setPreset(name)
@@ -146,8 +142,32 @@ export default function App() {
     </div>
   )
 
-  const controls = (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto px-3 py-3 max-md:h-auto max-md:overflow-visible max-md:px-0 max-md:py-0">
+  const panelClass = 'flex h-full flex-col gap-3 overflow-y-auto px-3 py-3 max-md:h-auto max-md:overflow-visible max-md:px-0 max-md:py-0'
+  const card = (m, children) => (
+    <ModuleCard
+      key={m.id}
+      module={m}
+      knobs={settings.knobs}
+      patches={settings.patches}
+      selected={selected}
+      onKnob={setKnob}
+      onSelect={select}
+    >
+      {children}
+    </ModuleCard>
+  )
+  const current = algoIndex(settings.knobs['synth.algo'])
+
+  const visualPanel = (
+    <div className={panelClass}>
+      <h2 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Visual</h2>
+      {MODULES.filter((m) => m.group === 'visual').map((m) => card(m))}
+    </div>
+  )
+
+  const soundPanel = (
+    <div className={panelClass}>
+      <h2 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Sound</h2>
       <section className="flex items-center justify-around gap-2 rounded-lg border border-border bg-card p-3">
         <RotaryKnob
           label="Response"
@@ -173,45 +193,36 @@ export default function App() {
           onChange={(master) => edit({ master })}
         />
       </section>
-      <Tabs value={tab} onValueChange={setTab} className="gap-3">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="sound">Sound</TabsTrigger>
-          <TabsTrigger value="visual">Visual</TabsTrigger>
-        </TabsList>
-        <TabsContent value="sound" className="space-y-3">
-          {MODULES.filter((m) => m.group === 'sound').map((m) => (
-            <ModuleCard
-              key={m.id}
-              module={m}
-              knobs={settings.knobs}
-              patches={settings.patches}
-              selected={selected}
-              onKnob={setKnob}
-              onSelect={select}
-            >
-              {m.id === 'drone' && (
-                <div className="mb-3 grid grid-cols-2 gap-2">
-                  <PickField label="Root" value={settings.root} options={ROOTS} onChange={(root) => edit({ root })} />
-                  <PickField label="Scale" value={settings.scale} options={SCALES} format={cap} onChange={(scale) => edit({ scale })} />
-                </div>
-              )}
-            </ModuleCard>
-          ))}
-        </TabsContent>
-        <TabsContent value="visual" className="space-y-3">
-          {MODULES.filter((m) => m.group === 'visual').map((m) => (
-            <ModuleCard
-              key={m.id}
-              module={m}
-              knobs={settings.knobs}
-              patches={settings.patches}
-              selected={selected}
-              onKnob={setKnob}
-              onSelect={select}
-            />
-          ))}
-        </TabsContent>
-      </Tabs>
+      {MODULES.filter((m) => m.group === 'sound').map((m) =>
+        card(
+          m,
+          m.id === 'synth' ? (
+            <div role="radiogroup" aria-label="Synth algorithm" className="mb-3 grid grid-cols-4 gap-1">
+              {ALGORITHMS.map((alg, i) => (
+                <button
+                  key={alg.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={current === i}
+                  title={alg.labels.join(' · ')}
+                  onClick={() => setKnob((i + 0.5) / ALGORITHMS.length, 'synth.algo')}
+                  className={cn(
+                    'rounded-md border px-1 py-1 text-[11px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                    current === i ? 'border-foreground bg-foreground text-background' : 'border-border text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {alg.name}
+                </button>
+              ))}
+            </div>
+          ) : m.id === 'drone' ? (
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <PickField label="Root" value={settings.root} options={ROOTS} onChange={(root) => edit({ root })} />
+              <PickField label="Scale" value={settings.scale} options={SCALES} format={cap} onChange={(scale) => edit({ scale })} />
+            </div>
+          ) : null,
+        ),
+      )}
     </div>
   )
 
@@ -244,8 +255,12 @@ export default function App() {
         </header>
 
         {isDesktop ? (
-          <ResizablePanelGroup id="main" orientation="horizontal" className="min-h-0 flex-1">
-            <ResizablePanel id="stage" defaultSize="70%" minSize="35%">
+          <ResizablePanelGroup id="main3" orientation="horizontal" className="min-h-0 flex-1">
+            <ResizablePanel id="visual" defaultSize="24%" minSize={260}>
+              {visualPanel}
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel id="stage" defaultSize="50%" minSize="25%">
               <ResizablePanelGroup id="stage-split" orientation="vertical">
                 <ResizablePanel id="canvas" defaultSize="62%" minSize="20%">
                   {stage}
@@ -257,16 +272,17 @@ export default function App() {
               </ResizablePanelGroup>
             </ResizablePanel>
             <ResizableHandle withHandle />
-            <ResizablePanel id="controls" defaultSize="30%" minSize={300}>
-              {controls}
+            <ResizablePanel id="sound" defaultSize="26%" minSize={280}>
+              {soundPanel}
             </ResizablePanel>
           </ResizablePanelGroup>
         ) : (
           <main className="flex min-h-0 flex-1 flex-col">
             <div className="h-[40dvh] shrink-0">{stage}</div>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
               {matrix('max-h-[45dvh] rounded-lg border border-border px-2 pb-2')}
-              {controls}
+              {visualPanel}
+              {soundPanel}
             </div>
           </main>
         )}

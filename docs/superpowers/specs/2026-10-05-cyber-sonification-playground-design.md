@@ -219,3 +219,23 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 **Revision 10a:** Distortion gets its own feedback loop: Feedback → Amount, Zoom, Rotate and Shift (horizontal smear). The distort pass renders into a second ping-pong pair and mixes in its previous output, resampled. Scanlines, static and grain moved into a final output pass, so they never accumulate.
 
 **Revision 10b:** Each matrix column header is a live scope of its source: about 4 s of history at 30 Hz, a dashed centre line for bipolar sources (Hit's baseline is the bottom), a tick for every incoming attack (density) and the current value as a number. Every active cell draws a live bar from its centre showing its current contribution (amount × signal).
+
+## Revision 11 (2026-10-07): macro-oscillator synth, three-column layout
+
+- **Layout:** Visual modules on the left, canvas over matrix in the centre, Sound modules (with the global Response, Hit decay and Master) on the right. Three resizable columns on desktop; stacked on mobile (canvas, matrix, visual, sound).
+- **Synth = macro-oscillator** after Mutable Instruments Plaits: an Algorithm knob, which is also mappable and has a picker, plus Harmonics, Timbre and Morph whose labels change per algorithm. The eleven algorithms, each built per attack in Web Audio:
+  - Analog: tri→saw plus a variable pulse, detuned.
+  - Fold: sine/triangle through a sine wavefolder with asymmetry.
+  - FM: 2-op with a quantised ratio, decaying index and a third op as feedback.
+  - Formant: a saw through two bandpasses.
+  - Additive: bump spectra as a PeriodicWave.
+  - Wavetable: the harmonic-table morph with unison.
+  - Chords: 9 chord types, inversion, waveform.
+  - Modal: 6 decaying partials morphing string → bar → membrane ratios.
+  - Drum: Basimilus-Iteritas-like additive partials with Spread (harmonic → stretched ratios), partial count and waveform, and a built-in pitch drop.
+  - Noise: an LP/BP/HP-filtered noise, tracking the note.
+  - Dust: sparse impulses through a resonant bandpass.
+- After **Basimilus Iteritas**, every algorithm also gets **Fold** (a post wavefolder) and **Punch** (a pitch envelope).
+- **Filter, Envelope and Voice** sections are unchanged.
+- **Levels:** measured in headless Chrome with an analyser on the destination, all eleven produce roughly −15 to −25 dBFS peaks with the defaults.
+- Settings version 6.

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createSources, normalize } from './fields.js'
 import { parseDataset } from './isc.js'
 import { createSampler, pickWeighted } from './sampler.js'
-import { DEFAULT_KNOBS, applyPatches, setPatch } from './params.js'
+import { ALGORITHMS, DEFAULT_KNOBS, algoIndex, applyPatches, setPatch } from './params.js'
 import { DEFAULTS, PRESETS, decodeSettings, encodeSettings, sanitize } from './settings.js'
 import { droneChord, noteFor, scaleNotes } from './synth.js'
 
@@ -76,10 +76,10 @@ describe('settings', () => {
 
   it('rejects garbage, old versions and bad patches', () => {
     expect(decodeSettings('!!!not-base64')).toBeNull()
-    expect(sanitize({ version: 4, root: 'C' }).root).toBe(DEFAULTS.root)
+    expect(sanitize({ version: 5, root: 'C' }).root).toBe(DEFAULTS.root)
     const s = sanitize({
-      version: 5,
-      knobs: { 'synth.warp': 5 },
+      version: 6,
+      knobs: { 'synth.fold': 5 },
       patches: [
         { source: 'nope', target: 'synth.note', amount: 0.5 },
         { source: 'port', target: 'fx.size', amount: 0.5 },
@@ -87,12 +87,21 @@ describe('settings', () => {
         { source: 'port', target: 'synth.note', amount: 0.9 },
       ],
     })
-    expect(s.knobs['synth.warp']).toBe(DEFAULTS.knobs['synth.warp'])
+    expect(s.knobs['synth.fold']).toBe(DEFAULTS.knobs['synth.fold'])
     expect(s.patches).toEqual([{ source: 'port', target: 'synth.note', amount: 0.5 }])
   })
 
   it('ships presets that survive sanitize unchanged', () => {
     for (const p of PRESETS) expect(sanitize(p.settings)).toEqual(p.settings)
+  })
+})
+
+describe('algorithms', () => {
+  it('splits the knob evenly and labels three macros each', () => {
+    expect(algoIndex(0)).toBe(0)
+    expect(algoIndex(1)).toBe(ALGORITHMS.length - 1)
+    expect(algoIndex((3 + 0.5) / ALGORITHMS.length)).toBe(3)
+    for (const a of ALGORITHMS) expect(a.labels).toHaveLength(3)
   })
 })
 

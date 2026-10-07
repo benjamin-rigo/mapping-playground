@@ -1,4 +1,5 @@
 import * as Tone from 'tone'
+import { ALGORITHMS, algoIndex } from './params.js'
 import { ROOTS } from './settings.js'
 
 export const SCALE_STEPS = {
@@ -61,9 +62,10 @@ export function shapePartials(shape, bright) {
   return out
 }
 
-// Synth: a per-attack Web Audio voice (wavetable-like Osc 1 with FM, a detuned saw
-// stack as Osc 2 that can cross-modulate Osc 1, sub, noise, per-voice filter and
-// envelopes). Drone: a held four-note chord in the scale with glide, morphing
+// Synth: a per-attack Web Audio voice built from one of eleven algorithms (after
+// Plaits: the same Harmonics/Timbre/Morph mean something different in each), plus a
+// wavefolder (Fold) and pitch envelope (Punch) after Basimilus Iteritas, a per-voice
+// filter and envelopes. Drone: a held four-note chord in the scale with glide, morphing
 // timbre and slow filter/amp movement. Both run through drive -> crush -> delay ->
 // reverb.
 export function createSynth() {
@@ -90,7 +92,7 @@ export function createSynth() {
 
   function build() {
     raw = Tone.getContext().rawContext
-    const master = new Tone.Volume(-8).toDestination()
+    const master = new Tone.Volume(-4).toDestination()
     const limiter = new Tone.Limiter(-1).connect(master)
     const reverb = new Tone.Reverb({ decay: 4, wet: 0.4 }).connect(limiter)
     const delay = new Tone.FeedbackDelay({ delayTime: 0.3, feedback: 0.35, wet: 0.2 }).connect(reverb)
@@ -140,16 +142,77 @@ export function createSynth() {
   const now = () => raw.currentTime
   const glideTo = (param, value, tc) => param.setTargetAtTime(value, now(), tc)
 
+  const cache = new Map()
+  const cached = (key, make) => {
+    if (!cache.has(key)) cache.set(key, make())
+    return cache.get(key)
+  }
+  const periodic = (key, real, imag) => cached(key, () => raw.createPeriodicWave(real, imag))
+  const q = (x) => Math.round(x * 20) / 20
+
+  // Triangle -> saw morph and variable-width pulse, as Fourier series.
+  function triSaw(m) {
+    return periodic(`ts${q(m)}`, new Float32Array(33), Float32Array.from({ length: 33 }, (_, n) => {
+      if (n === 0) return 0
+      const tri = n % 2 ? (8 / Math.PI ** 2) * (((n - 1) / 2) % 2 ? -1 : 1) / n ** 2 : 0
+      return tri * (1 - q(m)) + (1 / n) * q(m)
+    }))
+  }
+  function pulse(width) {
+    const d = q(width)
+    return periodic(`pw${d}`, Float32Array.from({ length: 33 }, (_, n) => (n ? (2 / (n * Math.PI)) * Math.sin(n * Math.PI * d) : 0)), new Float32Array(33))
+  }
+  function additive(h, t, m) {
+    const bumps = 1 + Math.floor(h * 3.99)
+    const peak = 1 + q(t) * 23
+    const width = 8 - q(m) * 7
+    return periodic(`ad${bumps}:${q(t)}:${q(m)}`, new Float32Array(49), Float32Array.from({ length: 49 }, (_, n) => {
+      if (n === 0) return 0
+      let a = n === 1 ? 0.3 : 0
+      for (let b = 0; b < bumps; b++) a += Math.exp(-((n - peak * (1 + b * 0.8)) ** 2) / (2 * width ** 2))
+      return a / Math.sqrt(n)
+    }))
+  }
+  // Sine wavefolder with gain and offset baked into the curve (inputs are clamped to +-1).
+  function foldCurve(amount, offset = 0) {
+    return cached(`fold${q(amount)}:${q(offset)}`, () => {
+      const g = 1 + q(amount) * 8
+      return Float32Array.from({ length: 2048 }, (_, i) => Math.sin(((i / 2047) * 2 - 1 + offset) * g * Math.PI * 0.5))
+    })
+  }
+  function dust(density) {
+    return cached(`dust${q(density)}`, () => {
+      const buf = raw.createBuffer(1, raw.sampleRate, raw.sampleRate)
+      const d = buf.getChannelData(0)
+      const rate = expMap(q(density), 15, 4000)
+      for (let i = 0; i < d.length; i++) if (Math.random() < rate / raw.sampleRate) d[i] = Math.random() * 2 - 1
+      return buf
+    })
+  }
+
+  const RATIOS = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 7]
+  const CHORDS = [[0, 12], [0, 7], [0, 5, 12], [0, 3, 7], [0, 4, 7], [0, 3, 7, 10], [0, 4, 7, 11], [0, 4, 7, 14], [0, 5, 7, 10]]
+  const MATERIALS = [
+    [1, 2, 3, 4, 5, 6], // string
+    [1, 2.756, 5.404, 8.933, 13.344, 18.64], // bar
+    [1, 1.594, 2.136, 2.296, 2.653, 2.918], // membrane
+  ]
+  const BASIC = ['sine', 'triangle', 'sawtooth', 'square']
+
   function voice(v, t) {
     const ctx = raw
     const midi = noteFor(v['synth.note'], v['synth.range'], settings.root, settings.scale, 48)
     const f = mtof(midi)
+    const H = v['synth.harmonics']
+    const T = v['synth.timbre']
+    const M = v['synth.morph']
     const a = expMap(v['synth.attack'], 0.001, 2)
     const d = expMap(v['synth.decay'], 0.02, 3)
     const r = expMap(v['synth.release'], 0.02, 5)
     const gateEnd = t + a + d
     const end = gateEnd + r * 1.5 + 0.05
-    const level = v['synth.level'] ** 2 * 0.6
+    const level = v['synth.level'] ** 2
+    const algo = ALGORITHMS[algoIndex(v['synth.algo'])].id
 
     const sources = []
     const gain = (value) => {
@@ -157,12 +220,37 @@ export function createSynth() {
       g.gain.value = value
       return g
     }
-    const osc = (type, freq) => {
+    // Punch: every oscillator starts higher and drops to pitch (BIA "Liquid" style kick).
+    const punch = v['synth.punch'] + (algo === 'drum' ? 0.25 : 0)
+    const setFreq = (param, fr) => {
+      if (punch > 0.01) {
+        param.setValueAtTime(fr * 2 ** (punch * 4), t)
+        param.setTargetAtTime(fr, t, 0.008 + punch * 0.05)
+      } else param.value = fr
+    }
+    const osc = (wave, fr, level, dest) => {
       const o = ctx.createOscillator()
-      if (type) o.type = type
-      o.frequency.value = freq
+      if (typeof wave === 'string') o.type = wave
+      else o.setPeriodicWave(wave)
+      setFreq(o.frequency, fr)
       sources.push(o)
+      if (dest) o.connect(gain(level)).connect(dest)
       return o
+    }
+    const noiseSrc = (buffer, dest) => {
+      const src = ctx.createBufferSource()
+      src.buffer = buffer
+      src.loop = true
+      sources.push(src)
+      src.connect(dest)
+      return src
+    }
+    // A partial with its own decay, for the modal and drum models.
+    const partial = (wave, fr, amp, decay, dest) => {
+      const g = gain(0)
+      g.gain.setValueAtTime(amp, t)
+      g.gain.setTargetAtTime(0, t + 0.002, decay / 4)
+      osc(wave, fr, 1, null).connect(g).connect(dest)
     }
 
     const out = gain(0)
@@ -175,7 +263,7 @@ export function createSynth() {
     out.connect(pan)
     Tone.connect(pan, n.input)
 
-    const cutoff = expMap(v['synth.cutoff'], 60, 14000)
+    const cutoff = expMap(v['synth.cutoff'], 60, 16000)
     const filter = ctx.createBiquadFilter()
     filter.Q.value = expMap(v['synth.res'], 0.5, 18)
     filter.frequency.setValueAtTime(cutoff, t)
@@ -183,40 +271,106 @@ export function createSynth() {
     filter.frequency.setTargetAtTime(cutoff, t + a + 0.005, d / 3)
     filter.connect(out)
 
-    const cents = v['synth.detune'] * 30
-    const o1 = osc(null, f)
-    o1.setPeriodicWave(wave(v['synth.shape'], v['synth.bright']))
-    o1.detune.value = -cents / 2
-    o1.connect(gain(0.5)).connect(filter)
+    const mix = gain(1)
+    if (v['synth.fold'] > 0.01) {
+      const shaper = ctx.createWaveShaper()
+      shaper.curve = foldCurve(v['synth.fold'])
+      shaper.oversample = '2x'
+      mix.connect(gain(0.9)).connect(shaper).connect(gain(0.7)).connect(filter)
+    } else mix.connect(filter)
 
-    if (v['synth.warp'] > 0.005) {
-      const m = osc('sine', f * expMap(v['synth.ratio'], 0.5, 8))
-      const peak = f * v['synth.warp'] * 8
-      const depth = gain(0)
-      depth.gain.setValueAtTime(peak, t)
-      depth.gain.setTargetAtTime(peak * 0.3, t, d / 2)
-      m.connect(depth).connect(o1.frequency)
-    }
-
-    if (v['synth.osc2'] > 0.005 || v['synth.xmod'] > 0.005) {
-      const sum = gain(1 / 3)
-      for (const det of [-cents, 0, cents]) {
-        const o = osc('sawtooth', f * 1.002)
-        o.detune.value = det
-        o.connect(sum)
+    const decayTime = expMap(M, 0.08, 6)
+    switch (algo) {
+      case 'analog':
+        osc(triSaw(M), f, 0.35, mix)
+        osc(pulse(0.5 - T * 0.45), f * 2 ** ((H * 40) / 1200), 0.3, mix)
+        break
+      case 'fold': {
+        const shaper = ctx.createWaveShaper()
+        shaper.curve = foldCurve(T, (M - 0.5) * 0.8)
+        shaper.oversample = '2x'
+        shaper.connect(gain(0.45)).connect(mix)
+        osc(H < 0.5 ? 'sine' : 'triangle', f, 0.95, shaper)
+        break
       }
-      sum.connect(gain(v['synth.osc2'] * 0.5)).connect(filter)
-      if (v['synth.xmod'] > 0.005) sum.connect(gain(f * v['synth.xmod'] * 6)).connect(o1.frequency)
-    }
-
-    if (v['synth.sub'] > 0.005) osc('sine', f / 2).connect(gain(v['synth.sub'] * 0.6)).connect(filter)
-
-    if (v['synth.noise'] > 0.005) {
-      const src = ctx.createBufferSource()
-      src.buffer = n.noise
-      src.loop = true
-      sources.push(src)
-      src.connect(gain(v['synth.noise'] * 0.5)).connect(filter)
+      case 'fm': {
+        const ratio = RATIOS[Math.min(RATIOS.length - 1, Math.floor(H * RATIOS.length))]
+        const car = osc('sine', f, 0.5, mix)
+        const mod = osc('sine', f * ratio, 1, null)
+        const depth = gain(0)
+        depth.gain.setValueAtTime(f * T * 10, t)
+        depth.gain.setTargetAtTime(f * T * 3, t, d / 2)
+        mod.connect(depth).connect(car.frequency)
+        if (M > 0.01) osc('sine', f * ratio * 1.5, f * ratio * M * 4, null).connect(gain(f * ratio * M * 4)).connect(mod.frequency)
+        break
+      }
+      case 'formant': {
+        const src = osc('sawtooth', f, 1, null)
+        const f1 = 250 * 2 ** (T * 3.5)
+        for (const [freq, lvl] of [[f1, 1], [f1 * (1.2 + H * 3), 0.6]]) {
+          const bp = ctx.createBiquadFilter()
+          bp.type = 'bandpass'
+          bp.frequency.value = freq
+          bp.Q.value = 2 + M * 25
+          src.connect(bp).connect(gain(lvl * (1 + M * 3))).connect(mix)
+        }
+        break
+      }
+      case 'additive':
+        osc(additive(H, T, M), f, 0.5, mix)
+        break
+      case 'wavetable': {
+        const w = periodic(`wt${q(T)}:${q(M)}`, new Float32Array(25), Float32Array.from([0, ...shapePartials(q(T), q(M))]))
+        osc(w, f, 0.45, mix)
+        if (H > 0.02) for (const c of [-1, 1]) osc(w, f * 2 ** ((c * H * 25) / 1200), H * 0.3, mix)
+        break
+      }
+      case 'chords': {
+        const intervals = [...CHORDS[Math.min(CHORDS.length - 1, Math.floor(H * CHORDS.length))]]
+        const up = Math.floor(T * intervals.length)
+        for (let i = 0; i < up; i++) intervals[i] += 12
+        for (const iv of intervals) osc(BASIC[Math.min(3, Math.floor(M * 4))], f * 2 ** (iv / 12), 0.9 / intervals.length, mix)
+        break
+      }
+      case 'modal': {
+        const m = H * 2
+        const lo = MATERIALS[Math.min(1, Math.floor(m))]
+        const hi = MATERIALS[Math.min(2, Math.floor(m) + 1)]
+        const k = m - Math.floor(m)
+        for (let i = 0; i < 6; i++) {
+          const ratio = lo[i] * (1 - k) + hi[i] * k
+          if (f * ratio > 18000) continue
+          partial('sine', f * ratio, (0.5 / (i + 1) ** ((1 - T) * 2)) * 0.6, decayTime / (1 + i * 0.5), mix)
+        }
+        break
+      }
+      case 'drum': {
+        const wave = BASIC[Math.min(3, Math.floor(M * 4))]
+        for (let i = 0; i < 6; i++) {
+          const ratio = (i + 1) ** (0.5 + H)
+          if (f * ratio > 18000) continue
+          partial(wave, f * ratio, Math.exp(-i * (1 - T) * 1.2) * 0.3, d * (1.2 - i * 0.12), mix)
+        }
+        break
+      }
+      case 'noise': {
+        const flt = ctx.createBiquadFilter()
+        flt.type = H < 0.34 ? 'lowpass' : H < 0.67 ? 'bandpass' : 'highpass'
+        flt.frequency.value = Math.min(16000, f * 2 ** (T * 6 - 1))
+        flt.Q.value = expMap(M, 0.5, 30)
+        flt.connect(gain(0.35 + M * 0.3)).connect(mix)
+        noiseSrc(n.noise, flt)
+        break
+      }
+      case 'dust': {
+        const flt = ctx.createBiquadFilter()
+        flt.type = 'bandpass'
+        flt.frequency.value = f * 2 ** ((Math.random() - 0.5) * H * 4)
+        flt.Q.value = expMap(M, 1, 80)
+        flt.connect(gain(10 + M * 40)).connect(mix)
+        noiseSrc(dust(T), flt)
+        break
+      }
     }
 
     active++
@@ -225,7 +379,7 @@ export function createSynth() {
       pan.disconnect()
     }
     for (const s of sources) {
-      s.start(t, s.buffer ? Math.random() : undefined)
+      s.start(t, s.buffer ? Math.random() * 0.5 : undefined)
       s.stop(end)
     }
   }
@@ -248,7 +402,7 @@ export function createSynth() {
     setSettings(s) {
       settings = s
       if (!ready) return
-      n.master.volume.rampTo(s.master > 0 ? Tone.gainToDb(s.master) - 8 : -Infinity, 0.05)
+      n.master.volume.rampTo(s.master > 0 ? Tone.gainToDb(s.master) - 4 : -Infinity, 0.05)
     },
     // continuous knobs (drone + fx), called ~20 times per second
     setContinuous(v, tau) {

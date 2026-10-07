@@ -5,15 +5,32 @@
 
 const p = (sub, id, label, value, extra = {}) => ({ sub, id, label, value, ...extra })
 
+// Synth algorithms (after Mutable Instruments Plaits): the same three macros mean
+// something different in each. labels = what Harmonics, Timbre and Morph do.
+export const ALGORITHMS = [
+  { id: 'analog', name: 'Analog', labels: ['Detune', 'Pulse width', 'Tri → saw'] },
+  { id: 'fold', name: 'Fold', labels: ['Shape', 'Fold', 'Asymmetry'] },
+  { id: 'fm', name: 'FM', labels: ['Ratio', 'Index', 'Feedback'] },
+  { id: 'formant', name: 'Formant', labels: ['F2 ratio', 'Formant', 'Width'] },
+  { id: 'additive', name: 'Additive', labels: ['Bumps', 'Peak', 'Narrow'] },
+  { id: 'wavetable', name: 'Wavetable', labels: ['Unison', 'Position', 'Bright'] },
+  { id: 'chords', name: 'Chords', labels: ['Chord', 'Inversion', 'Wave'] },
+  { id: 'modal', name: 'Modal', labels: ['Material', 'Bright', 'Decay'] },
+  { id: 'drum', name: 'Drum', labels: ['Spread', 'Partials', 'Wave'] },
+  { id: 'noise', name: 'Noise', labels: ['LP · BP · HP', 'Cutoff', 'Resonance'] },
+  { id: 'dust', name: 'Dust', labels: ['Scatter', 'Density', 'Resonance'] },
+]
+export const algoIndex = (v) => Math.min(ALGORITHMS.length - 1, Math.floor(v * ALGORITHMS.length))
+
 export const MODULES = [
   {
     id: 'synth', group: 'sound', label: 'Synth', kind: 'event',
     hint: 'one note per attack',
     params: [
-      p('Oscillator', 'shape', 'Shape', 0.2), p('Oscillator', 'bright', 'Bright', 0.55), p('Oscillator', 'warp', 'FM', 0.3),
-      p('Oscillator', 'ratio', 'FM ratio', 0.45), p('Oscillator', 'detune', 'Detune', 0.15),
-      p('Layers', 'osc2', 'Osc 2', 0), p('Layers', 'xmod', 'Cross-mod', 0), p('Layers', 'sub', 'Sub', 0.15), p('Layers', 'noise', 'Noise', 0),
-      p('Filter', 'cutoff', 'Cutoff', 0.6), p('Filter', 'res', 'Res', 0.2), p('Filter', 'fenv', 'Env amt', 0.35),
+      p('Engine', 'algo', 'Algorithm', 0.05, { format: (v) => ALGORITHMS[algoIndex(v)].name }),
+      p('Engine', 'harmonics', 'Harmonics', 0.4, { macro: 0 }), p('Engine', 'timbre', 'Timbre', 0.5, { macro: 1 }), p('Engine', 'morph', 'Morph', 0.4, { macro: 2 }),
+      p('Shape', 'fold', 'Fold', 0), p('Shape', 'punch', 'Punch', 0),
+      p('Filter', 'cutoff', 'Cutoff', 0.7), p('Filter', 'res', 'Res', 0.15), p('Filter', 'fenv', 'Env amt', 0.3),
       p('Envelope', 'attack', 'Attack', 0.03), p('Envelope', 'decay', 'Decay', 0.35), p('Envelope', 'sustain', 'Sustain', 0.05), p('Envelope', 'release', 'Release', 0.5),
       p('Voice', 'note', 'Note', 0.5), p('Voice', 'range', 'Range', 0.5), p('Voice', 'level', 'Level', 0.7), p('Voice', 'pan', 'Pan', 0.5), p('Voice', 'chance', 'Chance', 0.85),
     ],

@@ -9,8 +9,9 @@ Companion to `../cyber_attack_sonification` (the reference piece shown in the op
 ## How it works
 
 - **Data:** SANS Internet Storm Center (DShield): top targeted ports, top attacking IPs and the infocon threat level. These are fetched straight from the browser (the ISC API allows CORS) and refreshed every 4 minutes. They are sampled into a stream of about 3 events per second, with occasional port-scan bursts. If the API is unreachable, the bundled `public/snapshot.json` is used.
+- **Layout:** Visual on the left, canvas and matrix in the middle, Sound on the right.
 - **Four modules, everything mappable:**
-  - **Synth:** one complex note per attack (wavetable-like oscillator with FM, an Osc 2 stack with cross-mod, sub, noise, filter and envelopes).
+  - **Synth:** one note per attack from a Plaits-style macro-oscillator. There are eleven algorithms (Analog, Fold, FM, Formant, Additive, Wavetable, Chords, Modal, Drum, Noise, Dust), each played with Harmonics, Timbre and Morph, plus a Basimilus-Iteritas-style Fold and Punch, a filter and envelopes.
   - **Drone:** a held chord in a chosen root, scale and range, with glide, voicing, timbre and movement.
   - **Noise:** a blurred feedback noise field (colour, shape, direction, feedback zoom, rotate and drift).
   - **Distortion:** blocks, tear, pixelate, RGB split, static, scanlines, hue shift, invert, posterize and burn.

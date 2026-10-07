@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { RotaryKnob } from '@/components/RotaryKnob'
+import { ALGORITHMS, algoIndex } from '@/engine/params'
 
 function depthOf(patches, key) {
   let neg = 0
@@ -36,12 +37,15 @@ export const ModuleCard = memo(function ModuleCard({ module, knobs, patches, sel
                 .map((p) => {
                   const key = `${module.id}.${p.id}`
                   const [modNeg, modPos] = depthOf(patches, key)
+                  // Harmonics/Timbre/Morph are renamed for the selected synth algorithm.
+                  const label = p.macro != null ? ALGORITHMS[algoIndex(knobs['synth.algo'])].labels[p.macro] : p.label
                   return (
                     <RotaryKnob
                       key={key}
                       id={key}
-                      label={p.label}
+                      label={label}
                       name={`${module.label} ${p.label}`}
+                      display={p.format?.(knobs[key])}
                       value={knobs[key]}
                       defaultValue={p.value}
                       onChange={onKnob}
