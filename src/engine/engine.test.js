@@ -70,15 +70,15 @@ describe('settings', () => {
     const s = structuredClone(DEFAULTS)
     s.knobs['distort.tear'] = 0.77
     s.patches.push({ source: 'threat', target: 'drone.timbre', amount: -0.25 })
-    s.scale = 'lydian'
+    s.knobs['drone.scale'] = 0.7
     expect(decodeSettings(encodeSettings(s))).toEqual(s)
   })
 
   it('rejects garbage, old versions and bad patches', () => {
     expect(decodeSettings('!!!not-base64')).toBeNull()
-    expect(sanitize({ version: 5, root: 'C' }).root).toBe(DEFAULTS.root)
+    expect(sanitize({ version: 7, knobs: { 'synth.fold': 0.9 } }).knobs['synth.fold']).toBe(DEFAULTS.knobs['synth.fold'])
     const s = sanitize({
-      version: 6,
+      version: 8,
       knobs: { 'synth.fold': 5 },
       patches: [
         { source: 'nope', target: 'synth.note', amount: 0.5 },

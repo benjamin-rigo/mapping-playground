@@ -1,6 +1,5 @@
 import * as Tone from 'tone'
-import { ALGORITHMS, algoIndex } from './params.js'
-import { ROOTS } from './settings.js'
+import { ALGORITHMS, ROOTS, SCALES, algoIndex, step } from './params.js'
 
 export const SCALE_STEPS = {
   minor: [0, 2, 3, 5, 7, 8, 10],
@@ -71,7 +70,9 @@ export function shapePartials(shape, bright) {
 export function createSynth() {
   let n = null
   let raw = null
-  let settings = null
+  // Key shared by drone and synth, from the (modulated) Drone Root and Scale knobs.
+  let root = 'A'
+  let scale = 'minor'
   let ready = false
   let active = 0
   let reverbSize = -1
@@ -201,7 +202,7 @@ export function createSynth() {
 
   function voice(v, t) {
     const ctx = raw
-    const midi = noteFor(v['synth.note'], v['synth.range'], settings.root, settings.scale, 48)
+    const midi = noteFor(v['synth.note'], v['synth.range'], root, scale, 48)
     const f = mtof(midi)
     const H = v['synth.harmonics']
     const T = v['synth.timbre']
@@ -388,10 +389,9 @@ export function createSynth() {
     get ready() {
       return ready
     },
-    async start(s) {
+    async start() {
       await Tone.start()
       if (!n) build()
-      settings = s
       ready = true
     },
     stop() {
@@ -399,17 +399,16 @@ export function createSynth() {
       ready = false
       glideTo(n.droneOut.gain, 0, 0.3)
     },
-    setSettings(s) {
-      settings = s
-      if (!ready) return
-      n.master.volume.rampTo(s.master > 0 ? Tone.gainToDb(s.master) - 4 : -Infinity, 0.05)
-    },
     // continuous knobs (drone + fx), called ~20 times per second
     setContinuous(v, tau) {
       if (!ready) return
       const tc = Math.max(0.01, tau / 3)
+      const master = v['global.master']
+      n.master.volume.rampTo(master > 0 ? Tone.gainToDb(master) - 4 : -Infinity, 0.05)
 
-      const chord = droneChord(v['drone.pitch'], v['drone.range'], settings.root, settings.scale)
+      root = ROOTS[step(v['drone.root'], ROOTS.length)]
+      scale = SCALES[step(v['drone.scale'], SCALES.length)]
+      const chord = droneChord(v['drone.pitch'], v['drone.range'], root, scale)
       const key = chord.join()
       if (key !== droneKey) {
         droneKey = key

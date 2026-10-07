@@ -239,3 +239,8 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 - **Filter, Envelope and Voice** sections are unchanged.
 - **Levels:** measured in headless Chrome with an analyser on the destination, all eleven produce roughly −15 to −25 dBFS peaks with the defaults.
 - Settings version 6.
+
+**Revision 11a:** Everything that shapes the output is now a mappable knob.
+- Drone **Root** (12 steps) and **Scale** (8 steps) are stepped knobs. The modulated key is shared with the synth, so data can change key or mode on the fly.
+- A **Global** module (Response, Hit decay, Master) replaces the separate global controls. Response and Hit decay use the previous frame's modulated value, to avoid a feedback loop with the smoothing they control.
+- Settings version 8.

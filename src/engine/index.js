@@ -44,9 +44,10 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
     const dt = Math.min(0.1, (now - last) / 1000)
     last = now
     while (recent.length && now - recent[0] > DENSITY_WINDOW_MS) recent.shift()
-    const tau = expMap(settings.response, 0.01, 3)
+    // Response and Hit decay are knobs too; use last frame's modulated values.
+    const tau = expMap(live['global.response'] ?? settings.knobs['global.response'], 0.01, 3)
     sources.tick(dt, { density: recent.length, threat: running && data ? data.threat : 0, tau })
-    hit *= Math.exp(-dt / expMap(settings.hitDecay, 0.05, 3))
+    hit *= Math.exp(-dt / expMap(live['global.hitDecay'] ?? settings.knobs['global.hitDecay'], 0.05, 3))
     sources.latest.hit = hit
     sources.smooth.hit = hit
 
@@ -75,7 +76,7 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
       if (running) return
       running = true
       onStatus?.('loading')
-      await synth.start(settings)
+      await synth.start()
       await refresh()
       if (!running) return
       sampler.start()
@@ -90,7 +91,6 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
     },
     setSettings(s) {
       settings = s
-      synth.setSettings(s)
     },
     subscribe(fn) {
       listeners.add(fn)

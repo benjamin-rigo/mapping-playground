@@ -3,16 +3,14 @@ import { Check, Link, Play, Square } from 'lucide-react'
 import { EngineContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
 import { ModuleCard } from '@/components/ModuleCard'
-import { RotaryKnob } from '@/components/RotaryKnob'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createEngine } from '@/engine'
-import { expMap } from '@/engine/synth'
 import { ALGORITHMS, MODULES, algoIndex } from '@/engine/params'
 import { cn } from '@/lib/utils'
-import { DEFAULTS, PRESETS, ROOTS, SCALES, decodeSettings, encodeSettings } from '@/engine/settings'
+import { DEFAULTS, PRESETS, decodeSettings, encodeSettings } from '@/engine/settings'
 
 const STATUS = {
   idle: { label: 'Stopped', variant: 'outline' },
@@ -20,8 +18,6 @@ const STATUS = {
   live: { label: 'Live · SANS ISC', variant: 'default' },
   offline: { label: 'Offline · snapshot', variant: 'destructive' },
 }
-
-const cap = (s) => s[0].toUpperCase() + s.slice(1)
 
 function initialSettings() {
   const match = location.hash.match(/s=([\w-]+)/)
@@ -49,24 +45,6 @@ function EventLog({ engine }) {
     <p className="pointer-events-none absolute bottom-3 left-3 rounded bg-white/70 px-1.5 py-0.5 font-mono text-[11px] text-neutral-900">
       {event.burst ? 'scan' : 'hit'} {event.ip} → :{event.port}
     </p>
-  )
-}
-
-function PickField({ label, value, options, onChange, format = (o) => o }) {
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger size="sm" className="w-full" aria-label={label}>
-        <span className="text-muted-foreground">{label}</span>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent position="popper">
-        {options.map((o) => (
-          <SelectItem key={o} value={o}>
-            {format(o)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   )
 }
 
@@ -168,31 +146,6 @@ export default function App() {
   const soundPanel = (
     <div className={panelClass}>
       <h2 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Sound</h2>
-      <section className="flex items-center justify-around gap-2 rounded-lg border border-border bg-card p-3">
-        <RotaryKnob
-          label="Response"
-          name="Response time"
-          value={settings.response}
-          defaultValue={0.25}
-          display={`${Math.round(expMap(settings.response, 10, 3000))}ms`}
-          onChange={(response) => edit({ response })}
-        />
-        <RotaryKnob
-          label="Hit decay"
-          name="Hit decay"
-          value={settings.hitDecay}
-          defaultValue={0.35}
-          display={`${Math.round(expMap(settings.hitDecay, 50, 3000))}ms`}
-          onChange={(hitDecay) => edit({ hitDecay })}
-        />
-        <RotaryKnob
-          label="Master"
-          value={settings.master}
-          defaultValue={0.8}
-          display={`${Math.round(settings.master * 100)}%`}
-          onChange={(master) => edit({ master })}
-        />
-      </section>
       {MODULES.filter((m) => m.group === 'sound').map((m) =>
         card(
           m,
@@ -214,11 +167,6 @@ export default function App() {
                   {alg.name}
                 </button>
               ))}
-            </div>
-          ) : m.id === 'drone' ? (
-            <div className="mb-3 grid grid-cols-2 gap-2">
-              <PickField label="Root" value={settings.root} options={ROOTS} onChange={(root) => edit({ root })} />
-              <PickField label="Scale" value={settings.scale} options={SCALES} format={cap} onChange={(scale) => edit({ scale })} />
             </div>
           ) : null,
         ),
