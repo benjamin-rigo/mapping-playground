@@ -4,7 +4,7 @@ import { createSources, normalize } from './fields.js'
 import { parseDataset } from './isc.js'
 import { createSampler, pickWeighted } from './sampler.js'
 import { ALGORITHMS, DEFAULT_KNOBS, algoIndex, applyPatches, setPatch } from './params.js'
-import { DEFAULTS, PRESETS, decodeSettings, encodeSettings, sanitize } from './settings.js'
+import { DEFAULTS, PRESETS, decodeSettings, encodeSettings, randomSettings, sanitize } from './settings.js'
 import { droneChord, noteFor, scaleNotes } from './synth.js'
 
 const snapshot = JSON.parse(readFileSync(new URL('../../public/snapshot.json', import.meta.url)))
@@ -89,6 +89,16 @@ describe('settings', () => {
     })
     expect(s.knobs['synth.fold']).toBe(DEFAULTS.knobs['synth.fold'])
     expect(s.patches).toEqual([{ source: 'port', target: 'synth.note', amount: 0.5 }])
+  })
+
+  it('randomizes into valid, audible settings', () => {
+    for (let seed = 1; seed < 30; seed++) {
+      const r = randomSettings(seeded(seed))
+      expect(sanitize(r)).toEqual(r)
+      expect(r.knobs['synth.level']).toBeGreaterThan(0.4)
+      expect(r.patches.length).toBeGreaterThanOrEqual(3)
+      expect(r.knobs['distort.invert'] === 0 || r.knobs['distort.invert'] > 0.8).toBe(true)
+    }
   })
 
   it('ships presets that survive sanitize unchanged', () => {

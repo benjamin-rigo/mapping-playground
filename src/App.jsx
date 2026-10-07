@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Check, Link, Play, Square, Volume2 } from 'lucide-react'
+import { Check, Dices, Link, Maximize, Minimize, Play, Square, Volume2 } from 'lucide-react'
 import { EngineContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
 import { ModuleCard } from '@/components/ModuleCard'
@@ -11,7 +11,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createEngine } from '@/engine'
 import { MODULES, PARAM_BY_KEY } from '@/engine/params'
-import { DEFAULTS, PRESETS, decodeSettings, encodeSettings } from '@/engine/settings'
+import { DEFAULTS, PRESETS, decodeSettings, encodeSettings, randomSettings } from '@/engine/settings'
 
 const STATUS = {
   idle: { label: 'Stopped', variant: 'outline' },
@@ -51,6 +51,8 @@ function EventLog({ engine }) {
 
 export default function App() {
   const canvasRef = useRef(null)
+  const stageRef = useRef(null)
+  const [fullscreen, setFullscreen] = useState(false)
   const [engine, setEngine] = useState(null)
   const [settings, setSettings] = useState(initialSettings)
   const [preset, setPreset] = useState('')
@@ -75,6 +77,13 @@ export default function App() {
     const id = setTimeout(() => history.replaceState(null, '', `#s=${encodeSettings(settings)}`), 300)
     return () => clearTimeout(id)
   }, [engine, settings])
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === stageRef.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+  const toggleFullscreen = () => (document.fullscreenElement ? document.exitFullscreen() : stageRef.current?.requestFullscreen())
 
   const running = status !== 'idle'
   const edit = (patch) => {
@@ -128,7 +137,16 @@ export default function App() {
   )
 
   const stage = (
-    <div className="relative size-full">
+    <div ref={stageRef} className="relative size-full bg-background">
+      <Button
+        variant="secondary"
+        size="icon-sm"
+        onClick={toggleFullscreen}
+        aria-label={fullscreen ? 'Exit full screen' : 'Full screen'}
+        className="absolute top-3 right-3 z-10 opacity-70 hover:opacity-100"
+      >
+        {fullscreen ? <Minimize /> : <Maximize />}
+      </Button>
       <canvas ref={canvasRef} className="block size-full" aria-label="Live visualization of attack events" />
       {!running && (
         <button
@@ -190,6 +208,16 @@ export default function App() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setPreset('')
+              setSettings((s) => randomSettings(Math.random, s.master))
+            }}
+          >
+            <Dices /> Random
+          </Button>
           <label className="flex items-center gap-2 text-muted-foreground">
             <Volume2 className="size-4" aria-hidden />
             <Slider

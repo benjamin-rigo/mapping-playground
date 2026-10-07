@@ -261,3 +261,13 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
   - Master is a volume slider in the header (settings.master, not mappable).
   - Response is a mappable knob in the matrix's top-left corner.
   - Settings version 10.
+
+**Revision 12a:**
+- **Full-screen button** on the canvas (the Fullscreen API on the stage element; Esc or the button exits).
+- **Random** in the header replaces every knob and creates 4–7 random patches, with guardrails:
+  - Synth and drone levels and the synth's chance stay audible.
+  - Most distortions are drawn as rand³, so they lean low.
+  - Saturation and contrast have floors, and static and grain have ceilings.
+  - Invert is either 0 or above 0.85, because a half-inverted image goes flat grey.
+  - The master volume is kept.
+- A unit test checks that 29 seeded randoms are all valid and audible.

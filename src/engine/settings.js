@@ -1,4 +1,4 @@
-import { DEFAULT_KNOBS, PARAM_BY_KEY, ROOTS, SCALES, SOURCE_IDS, signal, stepValue } from './params.js'
+import { DEFAULT_KNOBS, PARAMS, PARAM_BY_KEY, ROOTS, SCALES, SOURCE_IDS, signal, stepValue } from './params.js'
 
 export { ROOTS, SCALES }
 
@@ -101,6 +101,44 @@ export function sanitize(input) {
       .map(({ source, target, amount }) => ({ source, target, amount }))
   }
   return out
+}
+
+// A fresh random patch that stays usable: levels never vanish, distortions lean low,
+// and 4–7 data sources get wired to random knobs.
+export function randomSettings(rand = Math.random, master = 0.8) {
+  const range = (lo, hi) => lo + rand() * (hi - lo)
+  const knobs = {}
+  for (const p of PARAMS) {
+    if (p.module.id === 'distort' && !['grain', 'zoom', 'rotate', 'shift'].includes(p.id)) knobs[p.key] = rand() ** 3
+    else knobs[p.key] = rand()
+  }
+  Object.assign(knobs, {
+    'global.response': range(0.1, 0.5),
+    'synth.level': range(0.45, 0.85),
+    'synth.chance': range(0.5, 1),
+    'synth.attack': rand() * 0.5,
+    'drone.level': range(0.2, 0.6),
+    'noise.paper': rand() < 0.75 ? range(0.7, 1) : range(0, 0.3),
+    'noise.feedback': range(0, 0.85),
+    'noise.saturation': range(0.35, 0.95),
+    'noise.contrast': range(0.25, 0.85),
+    'distort.feedback': rand() ** 2 * 0.7,
+    'distort.static': rand() ** 3 * 0.3,
+    'distort.grain': range(0.15, 0.5),
+    // a half-inverted picture is flat grey, so it is either off or nearly full
+    'distort.invert': rand() < 0.15 ? range(0.85, 1) : 0,
+  })
+  for (const key in knobs) knobs[key] = Math.round(knobs[key] * 1000) / 1000
+  const targets = PARAMS.filter((p) => p.patchable)
+  let patches = []
+  const count = 4 + Math.floor(rand() * 4)
+  for (let i = 0; i < count; i++) {
+    const source = SOURCE_IDS[Math.floor(rand() * SOURCE_IDS.length)]
+    const target = targets[Math.floor(rand() * targets.length)].key
+    const amount = Math.round(range(0.15, 0.6) * (rand() < 0.25 ? -1 : 1) * 100) / 100
+    patches = [...patches.filter((x) => !(x.source === source && x.target === target)), { source, target, amount }]
+  }
+  return { version: 10, knobs, patches, master }
 }
 
 export function encodeSettings(settings) {
