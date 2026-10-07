@@ -244,3 +244,20 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 - Drone **Root** (12 steps) and **Scale** (8 steps) are stepped knobs. The modulated key is shared with the synth, so data can change key or mode on the fly.
 - A **Global** module (Response, Hit decay, Master) replaces the separate global controls. Response and Hit decay use the previous frame's modulated value, to avoid a feedback loop with the smoothing they control.
 - Settings version 8.
+
+## Revision 12 (2026-10-07): FM drone, controls tidy-up
+
+- **Drone is FM.** Each of the 4 chord tones is 2 detuned sine carriers, one modulator and a third operator feeding the modulator. The knobs:
+  - Ratio, which steps through ×0.5, 1, 1.5, 2, 3, 4, 5 and 7.
+  - Inharm, which stretches the ratio for bell or metal tones.
+  - Index, the FM depth.
+  - Feedback, from the third operator.
+  - Bright and Spread.
+  - Motion, which now also breathes the FM index.
+- Measured in the browser: raising Index and Feedback/Inharm moves the spectral centroid from about 0.75 to 3 kHz at a steady level, because the drone's lowpass opens with the index.
+- **Controls tidy-up:**
+  - The algorithm buttons are gone; the Algorithm knob does the job.
+  - Hit decay is a fixed 0.2 s.
+  - Master is a volume slider in the header (settings.master, not mappable).
+  - Response is a mappable knob in the matrix's top-left corner.
+  - Settings version 10.

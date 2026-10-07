@@ -77,7 +77,7 @@ function AmountCell({ amount, source, label, onChange }) {
   )
 }
 
-export function ModMatrix({ settings, selected, onSelect, onPatches, className }) {
+export function ModMatrix({ settings, selected, onSelect, onPatches, className, corner }) {
   const { patches } = settings
   const rows = PARAMS.filter((p) => p.patchable && (p.key === selected || patches.some((x) => x.target === p.key)))
   const rowRefs = useRef({})
@@ -100,8 +100,11 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className }
       <table className="w-full table-fixed border-separate border-spacing-x-1 border-spacing-y-0.5 text-xs">
         <thead className="sticky top-0 z-10 bg-background">
           <tr>
-            <th className="w-[30%] py-2 pl-1 text-left text-[11px] font-medium tracking-wider text-muted-foreground uppercase @[36rem]:w-48">
-              Matrix
+            <th className="w-[30%] py-2 pl-1 text-left font-normal @[36rem]:w-48">
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Matrix</span>
+                {corner}
+              </div>
             </th>
             {SOURCES.map((s) => (
               <th key={s.id} className="py-2 font-normal" title={`${s.label}: ${s.hint}`}>

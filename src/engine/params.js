@@ -25,6 +25,8 @@ export const algoIndex = (v) => step(v, ALGORITHMS.length)
 
 export const ROOTS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 export const SCALES = ['minor', 'major', 'pentatonic', 'dorian', 'phrygian', 'lydian', 'whole tone', 'chromatic']
+// Modulator/carrier ratios the Drone FM Ratio knob steps through.
+export const DRONE_RATIOS = [0.5, 1, 1.5, 2, 3, 4, 5, 7]
 // Knob value at the centre of step i of n, for presets and pickers.
 export const stepValue = (i, n) => (i + 0.5) / n
 
@@ -32,13 +34,9 @@ const ms = (v, lo, hi) => `${Math.round(lo * (hi / lo) ** v)}ms`
 
 export const MODULES = [
   {
-    id: 'global', group: 'sound', label: 'Global', kind: 'continuous',
-    hint: 'how the data reacts, and the volume',
-    params: [
-      p('Reaction', 'response', 'Response', 0.25, { format: (v) => ms(v, 10, 3000) }),
-      p('Reaction', 'hitDecay', 'Hit decay', 0.35, { format: (v) => ms(v, 50, 3000) }),
-      p('Reaction', 'master', 'Master', 0.8, { format: (v) => `${Math.round(v * 100)}%` }),
-    ],
+    // Shown in the matrix toolbar rather than as a card.
+    id: 'global', group: 'matrix', label: 'Matrix', kind: 'continuous',
+    params: [p('Reaction', 'response', 'Response', 0.25, { format: (v) => ms(v, 10, 3000) })],
   },
   {
     id: 'synth', group: 'sound', label: 'Synth', kind: 'event',
@@ -54,12 +52,14 @@ export const MODULES = [
   },
   {
     id: 'drone', group: 'sound', label: 'Drone', kind: 'continuous',
-    hint: 'a held chord; its key is shared with the synth',
+    hint: 'a held FM chord; its key is shared with the synth',
     params: [
       p('Key', 'root', 'Root', stepValue(9, 12), { format: (v) => ROOTS[step(v, 12)] }),
       p('Key', 'scale', 'Scale', stepValue(0, 8), { format: (v) => SCALES[step(v, 8)] }),
       p('Pitch', 'pitch', 'Pitch', 0.4), p('Pitch', 'range', 'Range', 0.3), p('Pitch', 'glide', 'Glide', 0.5), p('Pitch', 'voicing', 'Voicing', 0.6),
-      p('Tone', 'timbre', 'Timbre', 0.3), p('Tone', 'bright', 'Bright', 0.35), p('Tone', 'spread', 'Spread', 0.3),
+      p('FM', 'ratio', 'Ratio', stepValue(1, DRONE_RATIOS.length), { format: (v) => `×${DRONE_RATIOS[step(v, DRONE_RATIOS.length)]}` }),
+      p('FM', 'inharm', 'Inharm', 0), p('FM', 'index', 'Index', 0.25), p('FM', 'feedback', 'Feedback', 0),
+      p('Tone', 'bright', 'Bright', 0.6), p('Tone', 'spread', 'Spread', 0.3),
       p('Movement', 'motion', 'Motion', 0.3), p('Movement', 'level', 'Level', 0.45),
     ],
   },

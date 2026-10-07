@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Check, Link, Play, Square } from 'lucide-react'
+import { Check, Link, Play, Square, Volume2 } from 'lucide-react'
 import { EngineContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
 import { ModuleCard } from '@/components/ModuleCard'
+import { RotaryKnob } from '@/components/RotaryKnob'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Slider } from '@/components/ui/slider'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createEngine } from '@/engine'
-import { ALGORITHMS, MODULES, algoIndex } from '@/engine/params'
-import { cn } from '@/lib/utils'
+import { MODULES, PARAM_BY_KEY } from '@/engine/params'
 import { DEFAULTS, PRESETS, decodeSettings, encodeSettings } from '@/engine/settings'
 
 const STATUS = {
@@ -100,8 +101,30 @@ export default function App() {
     setTimeout(() => setCopied(false), 1500)
   }
 
+  const responseDepth = settings.patches.filter((x) => x.target === 'global.response').reduce((sum, x) => sum + Math.abs(x.amount), 0)
   const matrix = (className) => (
-    <ModMatrix settings={settings} selected={selected} onSelect={select} onPatches={setPatches} className={className} />
+    <ModMatrix
+      settings={settings}
+      selected={selected}
+      onSelect={select}
+      onPatches={setPatches}
+      className={className}
+      corner={
+        <RotaryKnob
+          id="global.response"
+          label="Response"
+          name="Response time"
+          value={settings.knobs['global.response']}
+          defaultValue={0.25}
+          display={PARAM_BY_KEY['global.response'].format(settings.knobs['global.response'])}
+          onChange={setKnob}
+          onSelect={select}
+          selected={selected === 'global.response'}
+          modNeg={-responseDepth}
+          modPos={responseDepth}
+        />
+      }
+    />
   )
 
   const stage = (
@@ -121,7 +144,7 @@ export default function App() {
   )
 
   const panelClass = 'flex h-full flex-col gap-3 overflow-y-auto px-3 py-3 max-md:h-auto max-md:overflow-visible max-md:px-0 max-md:py-0'
-  const card = (m, children) => (
+  const card = (m) => (
     <ModuleCard
       key={m.id}
       module={m}
@@ -130,11 +153,8 @@ export default function App() {
       selected={selected}
       onKnob={setKnob}
       onSelect={select}
-    >
-      {children}
-    </ModuleCard>
+    />
   )
-  const current = algoIndex(settings.knobs['synth.algo'])
 
   const visualPanel = (
     <div className={panelClass}>
@@ -146,31 +166,7 @@ export default function App() {
   const soundPanel = (
     <div className={panelClass}>
       <h2 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Sound</h2>
-      {MODULES.filter((m) => m.group === 'sound').map((m) =>
-        card(
-          m,
-          m.id === 'synth' ? (
-            <div role="radiogroup" aria-label="Synth algorithm" className="mb-3 grid grid-cols-4 gap-1">
-              {ALGORITHMS.map((alg, i) => (
-                <button
-                  key={alg.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={current === i}
-                  title={alg.labels.join(' · ')}
-                  onClick={() => setKnob((i + 0.5) / ALGORITHMS.length, 'synth.algo')}
-                  className={cn(
-                    'rounded-md border px-1 py-1 text-[11px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                    current === i ? 'border-foreground bg-foreground text-background' : 'border-border text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {alg.name}
-                </button>
-              ))}
-            </div>
-          ) : null,
-        ),
-      )}
+      {MODULES.filter((m) => m.group === 'sound').map((m) => card(m))}
     </div>
   )
 
@@ -194,6 +190,18 @@ export default function App() {
               ))}
             </SelectContent>
           </Select>
+          <label className="flex items-center gap-2 text-muted-foreground">
+            <Volume2 className="size-4" aria-hidden />
+            <Slider
+              value={[settings.master]}
+              min={0}
+              max={1}
+              step={0.01}
+              onValueChange={([master]) => edit({ master })}
+              aria-label="Master volume"
+              className="w-24"
+            />
+          </label>
           <Button variant="outline" size="sm" onClick={copyLink}>
             {copied ? <Check /> : <Link />} {copied ? 'Copied' : 'Copy link'}
           </Button>

@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import { ALGORITHMS, ROOTS, SCALES, algoIndex, step } from './params.js'
+import { ALGORITHMS, DRONE_RATIOS, ROOTS, SCALES, algoIndex, step } from './params.js'
 
 export const SCALE_STEPS = {
   minor: [0, 2, 3, 5, 7, 8, 10],
@@ -77,20 +77,8 @@ export function createSynth() {
   let active = 0
   let reverbSize = -1
   let droneKey = ''
-  let droneTimbre = -1
-  const waves = new Map()
-
-  function wave(shape, bright) {
-    const key = `${shape.toFixed(2)}:${bright.toFixed(2)}`
-    if (!waves.has(key)) {
-      const partials = shapePartials(shape, bright)
-      const imag = new Float32Array(partials.length + 1)
-      imag.set(partials, 1)
-      waves.set(key, raw.createPeriodicWave(new Float32Array(imag.length), imag))
-    }
-    return waves.get(key)
-  }
-
+  let droneFreqs = [110, 110, 110, 110]
+  let master = 0.8
   function build() {
     raw = Tone.getContext().rawContext
     const master = new Tone.Volume(-4).toDestination()
@@ -105,7 +93,9 @@ export function createSynth() {
     const nd = noise.getChannelData(0)
     for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1
 
-    // drone: 4 chord tones x 2 detuned oscillators -> lowpass (LFO) -> tremolo -> level
+    // drone: 4 chord tones, each an FM voice (2 detuned sine carriers, a modulator,
+    // and a third operator feeding the modulator) -> lowpass (LFO) -> tremolo -> level.
+    // A slow LFO also breathes every voice's FM index.
     const droneOut = raw.createGain()
     droneOut.gain.value = 0
     Tone.connect(droneOut, input)
@@ -114,30 +104,45 @@ export function createSynth() {
     const dFilter = raw.createBiquadFilter()
     dFilter.Q.value = 1.2
     dFilter.connect(trem)
-    const lfo = raw.createOscillator()
-    lfo.frequency.value = 0.1
-    const lfoDepth = raw.createGain()
+    const sine = (freq) => {
+      const o = raw.createOscillator()
+      o.frequency.value = freq
+      o.start()
+      return o
+    }
+    const g = (value) => {
+      const node = raw.createGain()
+      node.gain.value = value
+      return node
+    }
+    const lfo = sine(0.1)
+    const lfoDepth = g(0)
     lfo.connect(lfoDepth).connect(dFilter.frequency)
-    const amp = raw.createOscillator()
-    amp.frequency.value = 0.07
-    const ampDepth = raw.createGain()
+    const amp = sine(0.07)
+    const ampDepth = g(0)
     amp.connect(ampDepth).connect(trem.gain)
-    lfo.start()
-    amp.start()
+    const idxLfo = sine(0.11)
     const tones = [0, 1, 2, 3].map(() => {
-      const g = raw.createGain()
-      g.connect(dFilter)
+      const level = g(0)
+      level.connect(dFilter)
       const pair = [-1, 1].map((side) => {
-        const o = raw.createOscillator()
-        o.frequency.value = 110
-        o.connect(g)
-        o.start()
+        const o = sine(110)
+        o.connect(level)
         return { o, side }
       })
-      return { g, pair }
+      const mod = sine(110)
+      const depth = g(0)
+      mod.connect(depth)
+      for (const { o } of pair) depth.connect(o.frequency)
+      const breathe = g(0)
+      idxLfo.connect(breathe).connect(depth.gain)
+      const op3 = sine(110)
+      const fb = g(0)
+      op3.connect(fb).connect(mod.frequency)
+      return { g: level, pair, mod, depth, breathe, op3, fb }
     })
 
-    n = { master, reverb, delay, crusher, drive, input, noise, droneOut, trem, dFilter, lfo, lfoDepth, amp, ampDepth, tones }
+    n = { master, reverb, delay, crusher, drive, input, noise, droneOut, trem, dFilter, lfo, lfoDepth, amp, ampDepth, idxLfo, tones }
   }
 
   const now = () => raw.currentTime
@@ -393,37 +398,48 @@ export function createSynth() {
       await Tone.start()
       if (!n) build()
       ready = true
+      this.setMaster(master)
     },
     stop() {
       if (!n) return
       ready = false
       glideTo(n.droneOut.gain, 0, 0.3)
     },
+    setMaster(m) {
+      master = m
+      if (n) n.master.volume.rampTo(m > 0 ? Tone.gainToDb(m) - 4 : -Infinity, 0.05)
+    },
     // continuous knobs (drone + fx), called ~20 times per second
     setContinuous(v, tau) {
       if (!ready) return
       const tc = Math.max(0.01, tau / 3)
-      const master = v['global.master']
-      n.master.volume.rampTo(master > 0 ? Tone.gainToDb(master) - 4 : -Infinity, 0.05)
 
       root = ROOTS[step(v['drone.root'], ROOTS.length)]
       scale = SCALES[step(v['drone.scale'], SCALES.length)]
       const chord = droneChord(v['drone.pitch'], v['drone.range'], root, scale)
       const key = chord.join()
+      const glide = expMap(v['drone.glide'], 0.01, 6) / 3
       if (key !== droneKey) {
         droneKey = key
-        const glide = expMap(v['drone.glide'], 0.01, 6) / 3
-        n.tones.forEach((t, i) => t.pair.forEach(({ o }) => glideTo(o.frequency, mtof(chord[i]), glide)))
+        droneFreqs = chord.map(mtof)
+        n.tones.forEach((t, i) => t.pair.forEach(({ o }) => glideTo(o.frequency, droneFreqs[i], glide)))
       }
-      if (Math.abs(v['drone.timbre'] - droneTimbre) > 0.02) {
-        droneTimbre = v['drone.timbre']
-        const w = wave(droneTimbre, 0.75)
-        for (const t of n.tones) for (const { o } of t.pair) o.setPeriodicWave(w)
-      }
+      const ratio = DRONE_RATIOS[step(v['drone.ratio'], DRONE_RATIOS.length)] * (1 + v['drone.inharm'] * 0.15)
+      const index = v['drone.index'] ** 2 * 8
+      n.tones.forEach((t, i) => {
+        const f = droneFreqs[i]
+        glideTo(t.mod.frequency, f * ratio, glide)
+        glideTo(t.op3.frequency, f * ratio * (1 + v['drone.inharm'] * 0.5), glide)
+        glideTo(t.depth.gain, f * ratio * index, tc)
+        glideTo(t.breathe.gain, f * ratio * index * v['drone.motion'] * 0.8, tc)
+        glideTo(t.fb.gain, f * ratio * v['drone.feedback'] * 3, tc)
+      })
+      n.idxLfo.frequency.value = 0.05 + v['drone.motion'] * 0.4
       const spread = v['drone.spread'] * 25
       for (const t of n.tones) for (const { o, side } of t.pair) glideTo(o.detune, side * spread, tc)
       n.tones.forEach((t, i) => glideTo(t.g.gain, i === 0 ? 0.35 : Math.max(0, Math.min(1, v['drone.voicing'] * 4 - i + 1)) * 0.25, 0.2))
-      const cutoff = expMap(v['drone.bright'], 80, 9000)
+      // the lowpass opens with the FM index so the sidebands it creates stay audible
+      const cutoff = Math.min(16000, expMap(v['drone.bright'], 80, 9000) * (1 + index * 0.6))
       glideTo(n.dFilter.frequency, cutoff, tc)
       glideTo(n.lfoDepth.gain, cutoff * 0.6 * v['drone.motion'], tc)
       n.lfo.frequency.value = 0.03 + v['drone.motion'] * 0.5

@@ -8,6 +8,7 @@ import { createSynth, expMap } from './synth.js'
 
 const REFRESH_MS = 4 * 60 * 1000
 const DENSITY_WINDOW_MS = 5000
+const HIT_DECAY_S = 0.2
 
 export function createEngine({ canvas, snapshotUrl, onStatus }) {
   const field = createField(canvas)
@@ -44,10 +45,10 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
     const dt = Math.min(0.1, (now - last) / 1000)
     last = now
     while (recent.length && now - recent[0] > DENSITY_WINDOW_MS) recent.shift()
-    // Response and Hit decay are knobs too; use last frame's modulated values.
+    // Response is a knob too; use last frame's modulated value.
     const tau = expMap(live['global.response'] ?? settings.knobs['global.response'], 0.01, 3)
     sources.tick(dt, { density: recent.length, threat: running && data ? data.threat : 0, tau })
-    hit *= Math.exp(-dt / expMap(live['global.hitDecay'] ?? settings.knobs['global.hitDecay'], 0.05, 3))
+    hit *= Math.exp(-dt / HIT_DECAY_S)
     sources.latest.hit = hit
     sources.smooth.hit = hit
 
@@ -91,6 +92,7 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
     },
     setSettings(s) {
       settings = s
+      synth.setMaster(s.master)
     },
     subscribe(fn) {
       listeners.add(fn)
