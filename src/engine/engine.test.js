@@ -76,9 +76,9 @@ describe('settings', () => {
 
   it('rejects garbage, old versions and bad patches', () => {
     expect(decodeSettings('!!!not-base64')).toBeNull()
-    expect(sanitize({ version: 9, knobs: { 'synth.fold': 0.9 } }).knobs['synth.fold']).toBe(DEFAULTS.knobs['synth.fold'])
+    expect(sanitize({ version: 10, knobs: { 'synth.fold': 0.9 } }).knobs['synth.fold']).toBe(DEFAULTS.knobs['synth.fold'])
     const s = sanitize({
-      version: 10,
+      version: 11,
       knobs: { 'synth.fold': 5 },
       patches: [
         { source: 'nope', target: 'synth.note', amount: 0.5 },

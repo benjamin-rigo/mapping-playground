@@ -25,6 +25,11 @@ export const algoIndex = (v) => step(v, ALGORITHMS.length)
 
 export const ROOTS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 export const SCALES = ['minor', 'major', 'pentatonic', 'dorian', 'phrygian', 'lydian', 'whole tone', 'chromatic']
+export const FILTER_TYPES = [
+  { type: 'lowpass', label: 'LP' },
+  { type: 'bandpass', label: 'BP' },
+  { type: 'highpass', label: 'HP' },
+]
 // Modulator/carrier ratios the Drone FM Ratio knob steps through.
 export const DRONE_RATIOS = [0.5, 1, 1.5, 2, 3, 4, 5, 7]
 // Knob value at the centre of step i of n, for presets and pickers.
@@ -58,8 +63,9 @@ export const MODULES = [
       p('Key', 'scale', 'Scale', stepValue(0, 8), { format: (v) => SCALES[step(v, 8)] }),
       p('Pitch', 'pitch', 'Pitch', 0.4), p('Pitch', 'range', 'Range', 0.3), p('Pitch', 'glide', 'Glide', 0.5), p('Pitch', 'voicing', 'Voicing', 0.6),
       p('FM', 'ratio', 'Ratio', stepValue(1, DRONE_RATIOS.length), { format: (v) => `×${DRONE_RATIOS[step(v, DRONE_RATIOS.length)]}` }),
-      p('FM', 'inharm', 'Inharm', 0), p('FM', 'index', 'Index', 0.25), p('FM', 'feedback', 'Feedback', 0),
-      p('Tone', 'bright', 'Bright', 0.6), p('Tone', 'spread', 'Spread', 0.3),
+      p('FM', 'index', 'Index', 0.25), p('FM', 'feedback', 'Feedback', 0), p('FM', 'spread', 'Spread', 0.3),
+      p('Filter', 'cutoff', 'Cutoff', 0.6), p('Filter', 'res', 'Res', 0.15),
+      p('Filter', 'type', 'Type', 0, { format: (v) => FILTER_TYPES[step(v, 3)].label }),
       p('Movement', 'motion', 'Motion', 0.3), p('Movement', 'level', 'Level', 0.45),
     ],
   },

@@ -21,7 +21,7 @@ const preset = (name, knobs, patches, extra = {}) => {
   for (const id in k) k[id] = Math.round(Math.max(0, Math.min(1, k[id])) * 1000) / 1000
   return {
     name,
-    settings: { version: 10, knobs: k, patches: out, master: 0.8, ...extra },
+    settings: { version: 11, knobs: k, patches: out, master: 0.8, ...extra },
   }
 }
 
@@ -64,7 +64,7 @@ export const PRESETS = [
     {
       'synth.algo': algo('drum'), 'synth.harmonics': 0.7, 'synth.timbre': 0.6, 'synth.morph': 0.7, 'synth.fold': 0.45, 'synth.punch': 0.6,
       'synth.res': 0.3, 'synth.decay': 0.2, 'synth.release': 0.2,
-      'drone.index': 0.6, 'drone.feedback': 0.4, 'drone.inharm': 0.3, 'drone.bright': 0.6, 'drone.spread': 0.7, 'drone.level': 0.35, ...key('E', 'phrygian'),
+      'drone.index': 0.6, 'drone.feedback': 0.4, 'drone.cutoff': 0.65, 'drone.res': 0.45, 'drone.spread': 0.7, 'drone.level': 0.35, ...key('E', 'phrygian'),
       'fx.drive': 0.35, 'fx.crush': 0.2, 'fx.delay': 0.3, 'fx.time': 0.15, 'fx.feedback': 0.55, 'fx.reverb': 0.2,
       'noise.hue': 0.98, 'noise.saturation': 0.8, 'noise.contrast': 0.7, 'noise.blur': 0.3, 'noise.turbulence': 0.7, 'noise.feedback': 0.65,
       'distort.grain': 0.6, 'distort.scanlines': 0.3, 'distort.blocks': 0.2, 'distort.tear': 0.12, 'distort.rgb': 0.3, 'distort.static': 0.08, 'distort.feedback': 0.35, 'distort.shift': 0.75,
@@ -90,7 +90,7 @@ const isNum = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >=
 
 export function sanitize(input) {
   const out = structuredClone(DEFAULTS)
-  if (!input || typeof input !== 'object' || input.version !== 10) return out
+  if (!input || typeof input !== 'object' || input.version !== 11) return out
   for (const key of Object.keys(out.knobs)) if (isNum(input.knobs?.[key], 0, 1)) out.knobs[key] = input.knobs[key]
   if (isNum(input.master, 0, 1)) out.master = input.master
   if (Array.isArray(input.patches)) {
@@ -138,7 +138,7 @@ export function randomSettings(rand = Math.random, master = 0.8) {
     const amount = Math.round(range(0.15, 0.6) * (rand() < 0.25 ? -1 : 1) * 100) / 100
     patches = [...patches.filter((x) => !(x.source === source && x.target === target)), { source, target, amount }]
   }
-  return { version: 10, knobs, patches, master }
+  return { version: 11, knobs, patches, master }
 }
 
 export function encodeSettings(settings) {

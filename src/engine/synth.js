@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import { ALGORITHMS, DRONE_RATIOS, ROOTS, SCALES, algoIndex, step } from './params.js'
+import { ALGORITHMS, DRONE_RATIOS, FILTER_TYPES, ROOTS, SCALES, algoIndex, step } from './params.js'
 
 export const SCALE_STEPS = {
   minor: [0, 2, 3, 5, 7, 8, 10],
@@ -424,12 +424,12 @@ export function createSynth() {
         droneFreqs = chord.map(mtof)
         n.tones.forEach((t, i) => t.pair.forEach(({ o }) => glideTo(o.frequency, droneFreqs[i], glide)))
       }
-      const ratio = DRONE_RATIOS[step(v['drone.ratio'], DRONE_RATIOS.length)] * (1 + v['drone.inharm'] * 0.15)
+      const ratio = DRONE_RATIOS[step(v['drone.ratio'], DRONE_RATIOS.length)]
       const index = v['drone.index'] ** 2 * 8
       n.tones.forEach((t, i) => {
         const f = droneFreqs[i]
         glideTo(t.mod.frequency, f * ratio, glide)
-        glideTo(t.op3.frequency, f * ratio * (1 + v['drone.inharm'] * 0.5), glide)
+        glideTo(t.op3.frequency, f * ratio, glide)
         glideTo(t.depth.gain, f * ratio * index, tc)
         glideTo(t.breathe.gain, f * ratio * index * v['drone.motion'] * 0.8, tc)
         glideTo(t.fb.gain, f * ratio * v['drone.feedback'] * 3, tc)
@@ -439,12 +439,18 @@ export function createSynth() {
       for (const t of n.tones) for (const { o, side } of t.pair) glideTo(o.detune, side * spread, tc)
       n.tones.forEach((t, i) => glideTo(t.g.gain, i === 0 ? 0.35 : Math.max(0, Math.min(1, v['drone.voicing'] * 4 - i + 1)) * 0.25, 0.2))
       // the lowpass opens with the FM index so the sidebands it creates stay audible
-      const cutoff = Math.min(16000, expMap(v['drone.bright'], 80, 9000) * (1 + index * 0.6))
+      const cutoff = Math.min(16000, expMap(v['drone.cutoff'], 60, 12000) * (1 + index * 0.6))
+      const type = FILTER_TYPES[step(v['drone.type'], 3)].type
+      if (n.dFilter.type !== type) n.dFilter.type = type
+      const Q = expMap(v['drone.res'], 0.5, 20)
+      glideTo(n.dFilter.Q, Q, tc)
+      // bandpass and highpass remove most of the chord's energy; make it back up
+      const makeup = type === 'bandpass' ? 3 + Q * 0.25 : type === 'highpass' ? 1.8 : 1
       glideTo(n.dFilter.frequency, cutoff, tc)
       glideTo(n.lfoDepth.gain, cutoff * 0.6 * v['drone.motion'], tc)
       n.lfo.frequency.value = 0.03 + v['drone.motion'] * 0.5
       glideTo(n.ampDepth.gain, v['drone.motion'] * 0.35, tc)
-      glideTo(n.droneOut.gain, v['drone.level'] ** 2 * 0.5, tc)
+      glideTo(n.droneOut.gain, v['drone.level'] ** 2 * 0.5 * makeup, tc)
 
       if (Math.abs(n.drive.distortion - (0.2 + v['fx.drive'] * 0.8)) > 0.02) n.drive.distortion = 0.2 + v['fx.drive'] * 0.8
       n.drive.wet.rampTo(Math.min(1, v['fx.drive'] * 1.5), tc)

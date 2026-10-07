@@ -271,3 +271,5 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
   - Invert is either 0 or above 0.85, because a half-inverted image goes flat grey.
   - The master volume is kept.
 - A unit test checks that 29 seeded randoms are all valid and audible.
+
+**Revision 12b:** The Drone's Inharm knob is removed, and its Bright knob becomes a **Filter** section: Cutoff (still opens with the FM index), Res, and Type (LP / BP / HP). BP and HP get a make-up gain, so all three types play at a similar level (measured peaks 0.05–0.09). Spread moved into the FM section. Settings version 11.
