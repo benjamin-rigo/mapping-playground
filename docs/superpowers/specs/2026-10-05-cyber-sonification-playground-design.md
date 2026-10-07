@@ -283,3 +283,9 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 - The Visual and Sound panel labels are sticky.
 - The accent colour is white instead of orange; negative patches stay blue.
 - In full screen, the cursor, the full-screen button and the event log hide after 2 s without mouse movement, and come back on movement.
+
+**Revision 12f:**
+- New preset "Night scan", saved from the user's own patch.
+- "Copy link" shortens the patch URL with da.gd (free, no key, `access-control-allow-origin: *`, keeps the long `#s=` fragment intact through its redirect). It falls back to the full link on failure or after a 5 s timeout. The clipboard write uses a ClipboardItem promise so Safari accepts it after the network request.
+- is.gd was rejected (it returned "database insert failed"), and so was TinyURL (its CORS only allows tinyurl.com).
+- The About dialog mentions the shortener.
