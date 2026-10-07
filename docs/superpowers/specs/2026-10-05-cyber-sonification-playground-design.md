@@ -287,3 +287,7 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 **Revision 12f:**
 - New preset "Night scan", saved from the user's own patch.
 - Share links are compact and need no third-party shortener. The format is "c" + base64url of bytes: format byte, master, the knobs that differ from their defaults (PARAMS index, value 0..100) and the patches (source, target index, amount + 100). Knob defaults and preset values are kept to two decimals so links round-trip exactly. The Night scan link went from about 2,760 to about 230 characters. Older JSON links still decode. New knobs must be appended to the end of PARAMS to keep old links valid.
+
+**After 1.0.1:**
+- Noise → Shape gets **Seed**, which offsets the noise sample window (seed × (137.3, 91.7)) so the same settings show a different pattern. It is mappable.
+- Share links now index knobs through a frozen `LINK_KEYS` list (the 1.0.1 order, plus appended keys), so adding knobs anywhere in a module no longer breaks old links. A test checks that the 1.0.1 Night scan link still decodes to the preset.

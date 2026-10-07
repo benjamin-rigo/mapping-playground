@@ -17,7 +17,7 @@ float hash(vec2 p) {
 const FRAME = `${COMMON}
 uniform sampler2D uPrev;
 uniform float uScale, uDetail, uTurb, uSoft, uThreshold, uFb, uZoom, uRot, uDrift, uBlocks, uBlockSize;
-uniform vec2 uFlow, uDir;
+uniform vec2 uFlow, uDir, uSeed;
 uniform vec3 uPaper, uInkA, uInkB;
 
 float noise(vec2 p) {
@@ -41,7 +41,7 @@ void main() {
   vec2 uv = gl_FragCoord.xy / uRes;
   float aspect = uRes.x / uRes.y;
 
-  vec2 p = vec2(uv.x * aspect, uv.y) * (0.8 + uScale * 6.0);
+  vec2 p = vec2(uv.x * aspect, uv.y) * (0.8 + uScale * 6.0) + uSeed;
   vec2 q = vec2(fbm(p + uFlow), fbm(p + vec2(5.2, 1.3) - uFlow * 0.7));
   vec2 r = vec2(fbm(p + uTurb * 4.0 * q + vec2(1.7, 9.2)), fbm(p + uTurb * 4.0 * q + vec2(8.3, 2.8)));
   float v = fbm(p + uTurb * 4.0 * r);
@@ -241,6 +241,8 @@ export function createField(canvas) {
       gl.uniform2f(f.uRes, w, h)
       gl.uniform1f(f.uTime, time)
       gl.uniform2fv(f.uFlow, flow)
+      // Seed moves the sample window to another region of the noise.
+      gl.uniform2f(f.uSeed, v['noise.seed'] * 137.3, v['noise.seed'] * 91.7)
       gl.uniform2fv(f.uDir, dir)
       gl.uniform1f(f.uScale, v['noise.scale'])
       gl.uniform1f(f.uDetail, 1 + v['noise.detail'] * 5)

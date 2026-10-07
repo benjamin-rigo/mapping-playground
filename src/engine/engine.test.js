@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createSources, normalize } from './fields.js'
 import { parseDataset } from './isc.js'
 import { createSampler, pickWeighted } from './sampler.js'
-import { ALGORITHMS, DEFAULT_KNOBS, algoIndex, applyPatches, setPatch } from './params.js'
+import { ALGORITHMS, DEFAULT_KNOBS, LINK_KEYS, PARAMS, algoIndex, applyPatches, setPatch } from './params.js'
 import { DEFAULTS, PRESETS, decodeSettings, encodeSettings, sanitize } from './settings.js'
 import { droneChord, noteFor, scaleNotes } from './synth.js'
 
@@ -73,6 +73,12 @@ describe('settings', () => {
       const back = decodeSettings(code)
       expect(back).toEqual(p.settings)
     }
+  })
+
+  it('keeps every knob in the frozen link order, and old 1.0.1 links still decode', () => {
+    expect(new Set(LINK_KEYS)).toEqual(new Set(PARAMS.map((p) => p.key)))
+    const night = decodeSettings('cAUEuAAABQAJjAw8EKwVQBw8IVgkAClMLVA1eDhMQFhExEg0TDhQgFQAWERcAGC8ZFxoEHQchMCQoJjIoSioAKwAsAC1kLgMvADAxM0s0SzcoOWQ7MTwCPiVDIkRFRyYLAw6HBANQBRGRAweXABqdARV7Bi6QBTiHBjmOBDuZBUOB')
+    expect(night).toEqual(PRESETS.find((p) => p.name === 'Night scan').settings)
   })
 
   it('still reads the older JSON links', () => {

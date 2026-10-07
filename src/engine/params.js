@@ -86,7 +86,7 @@ export const MODULES = [
     params: [
       p('Color', 'hue', 'Hue', 0.6), p('Color', 'spread', 'Hue spread', 0.08), p('Color', 'saturation', 'Saturation', 0.55),
       p('Color', 'paper', 'Paper', 0.93), p('Color', 'contrast', 'Contrast', 0.4),
-      p('Shape', 'scale', 'Scale', 0.35), p('Shape', 'detail', 'Detail', 0.6), p('Shape', 'blur', 'Blur', 0.7), p('Shape', 'turbulence', 'Turbulence', 0.4),
+      p('Shape', 'scale', 'Scale', 0.35), p('Shape', 'detail', 'Detail', 0.6), p('Shape', 'blur', 'Blur', 0.7), p('Shape', 'turbulence', 'Turbulence', 0.4), p('Shape', 'seed', 'Seed', 0),
       p('Motion', 'flow', 'Speed', 0.25), p('Motion', 'direction', 'Direction', 0.25),
       p('Feedback', 'feedback', 'Amount', 0.5), p('Feedback', 'zoom', 'Zoom', 0.5), p('Feedback', 'rotate', 'Rotate', 0.5), p('Feedback', 'drift', 'Drift', 0.2),
     ],
@@ -143,3 +143,22 @@ export function setPatch(patches, source, target, amount) {
   const rest = patches.filter((x) => !(x.source === source && x.target === target))
   return amount === 0 ? rest : [...rest, { source, target, amount }]
 }
+
+// Share links store knobs by their index in this list. It is frozen: never reorder
+// it, only append new keys, so links shared from older versions keep working.
+export const LINK_KEYS = [
+  'global.response', 'synth.algo', 'synth.harmonics', 'synth.timbre', 'synth.morph', 'synth.fold',
+  'synth.punch', 'synth.cutoff', 'synth.res', 'synth.fenv', 'synth.attack', 'synth.decay',
+  'synth.sustain', 'synth.release', 'synth.note', 'synth.range', 'synth.level', 'synth.pan',
+  'synth.chance', 'drone.root', 'drone.scale', 'drone.pitch', 'drone.range', 'drone.glide',
+  'drone.voicing', 'drone.ratio', 'drone.index', 'drone.feedback', 'drone.spread', 'drone.cutoff',
+  'drone.res', 'drone.type', 'drone.motion', 'drone.level', 'fx.drive', 'fx.crush',
+  'fx.delay', 'fx.time', 'fx.feedback', 'fx.reverb', 'fx.size', 'noise.hue',
+  'noise.spread', 'noise.saturation', 'noise.paper', 'noise.contrast', 'noise.scale', 'noise.detail',
+  'noise.blur', 'noise.turbulence', 'noise.flow', 'noise.direction', 'noise.feedback', 'noise.zoom',
+  'noise.rotate', 'noise.drift', 'distort.blocks', 'distort.blockSize', 'distort.tear', 'distort.pixelate',
+  'distort.rgb', 'distort.static', 'distort.scanlines', 'distort.grain', 'distort.hueshift', 'distort.invert',
+  'distort.posterize', 'distort.burn', 'distort.feedback', 'distort.zoom', 'distort.rotate', 'distort.shift',
+  // added after 1.0.1
+  'noise.seed',
+]
