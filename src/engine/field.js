@@ -66,11 +66,12 @@ void main() {
   gl_FragColor = vec4(mix(src, prev, keep), 1.0);
 }`
 
-// Present pass (Distortion module): tears, pixelates, splits and recolours the frame
-// on its way to the screen, then adds scanlines, static and grain. Not fed back.
-const PRESENT = `${COMMON}
-uniform sampler2D uFrame;
-uniform float uTear, uPix, uRgb, uStatic, uScan, uGrain, uHueShift, uInvert, uPost, uBurn;
+// Distort pass (Distortion module): tears, pixelates, splits and recolours the frame,
+// then mixes in its own previous output (zoomed, rotated, shifted) so the damage can
+// leave trails. Scanlines, static and grain are added later, in the output pass.
+const DISTORT = `${COMMON}
+uniform sampler2D uFrame, uPrevDist;
+uniform float uTear, uPix, uRgb, uHueShift, uInvert, uPost, uBurn, uDFb, uDZoom, uDRot, uDShift;
 
 vec3 hueRotate(vec3 c, float a) {
   const vec3 k = vec3(0.57735);
@@ -80,11 +81,13 @@ vec3 hueRotate(vec3 c, float a) {
 
 void main() {
   vec2 uv = gl_FragCoord.xy / uRes;
+  vec2 base = uv;
+  float aspect = uRes.x / uRes.y;
   float jit = floor(uTime * 14.0);
   float row = floor(uv.y * 80.0);
   if (hash(vec2(row, jit)) < uTear * 0.6) uv.x += (hash(vec2(row + 7.0, jit)) - 0.5) * 0.35 * uTear;
   if (uPix > 0.01) {
-    vec2 n = vec2(uRes.x / uRes.y, 1.0) * mix(160.0, 8.0, pow(uPix, 0.7));
+    vec2 n = vec2(aspect, 1.0) * mix(160.0, 8.0, pow(uPix, 0.7));
     uv = (floor(uv * n) + 0.5) / n;
   }
   float split = uRgb * 0.025;
@@ -97,6 +100,26 @@ void main() {
   }
   col = mix(col, 1.0 - col, uInvert);
   col = mix(col, clamp((col - 0.5) * (1.0 + uBurn * 4.0) + 0.5 + uBurn * 0.15, 0.0, 1.0), uBurn);
+
+  if (uDFb > 0.005) {
+    vec2 d = base - 0.5;
+    d.x *= aspect;
+    float ang = (uDRot - 0.5) * 0.1;
+    d = mat2(cos(ang), sin(ang), -sin(ang), cos(ang)) * d;
+    d *= 1.0 - (uDZoom - 0.5) * 0.08;
+    d.x /= aspect;
+    vec2 puv = 0.5 + d - vec2((uDShift - 0.5) * 0.02, 0.0);
+    col = mix(col, texture2D(uPrevDist, puv).rgb, uDFb * 0.96);
+  }
+  gl_FragColor = vec4(col, 1.0);
+}`
+
+// Output pass: scanlines, static and grain on top; never fed back.
+const OUTPUT = `${COMMON}
+uniform sampler2D uImage;
+uniform float uStatic, uScan, uGrain;
+void main() {
+  vec3 col = texture2D(uImage, gl_FragCoord.xy / uRes).rgb;
   col *= 1.0 - uScan * 0.5 * step(0.5, fract(gl_FragCoord.y * 0.5));
   col = mix(col, vec3(hash(gl_FragCoord.xy + uTime)), uStatic * 0.75);
   col += (hash(gl_FragCoord.xy + fract(uTime * 7.0) * 91.0) - 0.5) * uGrain * 0.3;
@@ -129,33 +152,36 @@ function program(gl, frag) {
   return { prog, u }
 }
 
-// Feedback video synth: each frame is drawn from the previous one (ping-pong
-// framebuffers), then distorted on its way to the screen.
+// Feedback video synth: the noise frame is drawn from its previous frame, the
+// distort pass from its own previous output (two ping-pong pairs), then the output
+// pass adds the non-accumulating noise on top.
 export function createField(canvas) {
   const gl = canvas.getContext('webgl', { antialias: false, preserveDrawingBuffer: true })
   if (!gl) return { render() {} }
 
   const frame = program(gl, FRAME)
-  const present = program(gl, PRESENT)
+  const distort = program(gl, DISTORT)
+  const output = program(gl, OUTPUT)
   const quad = gl.createBuffer()
   gl.bindBuffer(gl.ARRAY_BUFFER, quad)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
-  for (const { prog } of [frame, present]) {
+  for (const { prog } of [frame, distort, output]) {
     const loc = gl.getAttribLocation(prog, 'a')
     gl.enableVertexAttribArray(loc)
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)
   }
 
   let targets = []
+  let distTargets = []
   let w = 0
   let h = 0
   let cur = 0
   function makeTargets() {
-    for (const t of targets) {
+    for (const t of [...targets, ...distTargets]) {
       gl.deleteTexture(t.tex)
       gl.deleteFramebuffer(t.fb)
     }
-    targets = [0, 1].map(() => {
+    const make = () => {
       const tex = gl.createTexture()
       gl.bindTexture(gl.TEXTURE_2D, tex)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
@@ -167,7 +193,9 @@ export function createField(canvas) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb)
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0)
       return { tex, fb }
-    })
+    }
+    targets = [make(), make()]
+    distTargets = [make(), make()]
   }
 
   let time = 0
@@ -229,23 +257,43 @@ export function createField(canvas) {
       gl.uniform3fv(f.uInkB, hsl(hue + v['noise.spread'] * 0.5, sat, Math.min(0.85, inkL + 0.12)))
       gl.drawArrays(gl.TRIANGLES, 0, 3)
 
-      gl.useProgram(present.prog)
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      const dRead = distTargets[cur]
+      const dWrite = distTargets[1 - cur]
+      gl.useProgram(distort.prog)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dWrite.fb)
+      gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, write.tex)
-      const pu = present.u
-      gl.uniform1i(pu.uFrame, 0)
-      gl.uniform2f(pu.uRes, w, h)
-      gl.uniform1f(pu.uTime, time)
-      gl.uniform1f(pu.uTear, v['distort.tear'])
-      gl.uniform1f(pu.uPix, v['distort.pixelate'])
-      gl.uniform1f(pu.uRgb, v['distort.rgb'])
-      gl.uniform1f(pu.uStatic, v['distort.static'])
-      gl.uniform1f(pu.uScan, v['distort.scanlines'])
-      gl.uniform1f(pu.uGrain, v['distort.grain'])
-      gl.uniform1f(pu.uHueShift, v['distort.hueshift'])
-      gl.uniform1f(pu.uInvert, v['distort.invert'])
-      gl.uniform1f(pu.uPost, v['distort.posterize'])
-      gl.uniform1f(pu.uBurn, v['distort.burn'])
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_2D, dRead.tex)
+      const du = distort.u
+      gl.uniform1i(du.uFrame, 0)
+      gl.uniform1i(du.uPrevDist, 1)
+      gl.uniform2f(du.uRes, w, h)
+      gl.uniform1f(du.uTime, time)
+      gl.uniform1f(du.uTear, v['distort.tear'])
+      gl.uniform1f(du.uPix, v['distort.pixelate'])
+      gl.uniform1f(du.uRgb, v['distort.rgb'])
+      gl.uniform1f(du.uHueShift, v['distort.hueshift'])
+      gl.uniform1f(du.uInvert, v['distort.invert'])
+      gl.uniform1f(du.uPost, v['distort.posterize'])
+      gl.uniform1f(du.uBurn, v['distort.burn'])
+      gl.uniform1f(du.uDFb, v['distort.feedback'])
+      gl.uniform1f(du.uDZoom, v['distort.zoom'])
+      gl.uniform1f(du.uDRot, v['distort.rotate'])
+      gl.uniform1f(du.uDShift, v['distort.shift'])
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+
+      gl.useProgram(output.prog)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, dWrite.tex)
+      const ou = output.u
+      gl.uniform1i(ou.uImage, 0)
+      gl.uniform2f(ou.uRes, w, h)
+      gl.uniform1f(ou.uTime, time)
+      gl.uniform1f(ou.uStatic, v['distort.static'])
+      gl.uniform1f(ou.uScan, v['distort.scanlines'])
+      gl.uniform1f(ou.uGrain, v['distort.grain'])
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       cur = 1 - cur
     },

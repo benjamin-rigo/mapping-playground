@@ -54,6 +54,7 @@ export const MODULES = [
       p('Glitch', 'blocks', 'Blocks', 0), p('Glitch', 'tear', 'Tear', 0), p('Glitch', 'pixelate', 'Pixelate', 0), p('Glitch', 'rgb', 'RGB split', 0),
       p('Noise', 'static', 'Static', 0), p('Noise', 'scanlines', 'Scanlines', 0), p('Noise', 'grain', 'Grain', 0.35),
       p('Color', 'hueshift', 'Hue shift', 0), p('Color', 'invert', 'Invert', 0), p('Color', 'posterize', 'Posterize', 0), p('Color', 'burn', 'Burn', 0),
+      p('Feedback', 'feedback', 'Amount', 0), p('Feedback', 'zoom', 'Zoom', 0.5), p('Feedback', 'rotate', 'Rotate', 0.5), p('Feedback', 'shift', 'Shift', 0.5),
     ],
   },
 ]

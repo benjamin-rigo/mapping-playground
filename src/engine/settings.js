@@ -47,6 +47,7 @@ export const PRESETS = [
       patch('portPop', 'synth.bright', -0.4),
       patch('ip', 'synth.pan', 0.9),
       patch('hit', 'distort.rgb', 0.35),
+      patch('hit', 'distort.feedback', 0.5),
       patch('hit', 'noise.rotate', 0.1),
       patch('threat', 'noise.hue', 0.2),
     ],
@@ -60,7 +61,7 @@ export const PRESETS = [
       'drone.timbre': 0.7, 'drone.bright': 0.6, 'drone.spread': 0.7, 'drone.level': 0.35,
       'fx.drive': 0.35, 'fx.crush': 0.2, 'fx.delay': 0.3, 'fx.time': 0.15, 'fx.feedback': 0.55, 'fx.reverb': 0.2,
       'noise.hue': 0.98, 'noise.saturation': 0.8, 'noise.contrast': 0.7, 'noise.blur': 0.3, 'noise.turbulence': 0.7, 'noise.feedback': 0.65,
-      'distort.grain': 0.6, 'distort.scanlines': 0.3, 'distort.blocks': 0.2, 'distort.tear': 0.12, 'distort.rgb': 0.3, 'distort.static': 0.08,
+      'distort.grain': 0.6, 'distort.scanlines': 0.3, 'distort.blocks': 0.2, 'distort.tear': 0.12, 'distort.rgb': 0.3, 'distort.static': 0.08, 'distort.feedback': 0.35, 'distort.shift': 0.75,
     },
     [
       patch('ip', 'synth.note', 0.9),

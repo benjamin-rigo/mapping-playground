@@ -215,3 +215,5 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 - **Distortion** (continuous): Glitch (Blocks, which is fed back as sliding stuck blocks; Tear; Pixelate; RGB split), Noise (Static, Scanlines, Grain), Color (Hue shift, Invert, Posterize, Burn). Everything except Blocks runs in the present pass, so it breaks the picture without accumulating.
 - **Global:** Response (source smoothing), Hit decay and Master.
 - **Presets:** Pastel drift, Glass rain and Breakdown.
+
+**Revision 10a:** Distortion gets its own feedback loop: Feedback → Amount, Zoom, Rotate and Shift (horizontal smear). The distort pass renders into a second ping-pong pair and mixes in its previous output, resampled. Scanlines, static and grain moved into a final output pass, so they never accumulate.
