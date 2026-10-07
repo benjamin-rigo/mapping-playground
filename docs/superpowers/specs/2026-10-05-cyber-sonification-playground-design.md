@@ -217,3 +217,5 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 - **Presets:** Pastel drift, Glass rain and Breakdown.
 
 **Revision 10a:** Distortion gets its own feedback loop: Feedback → Amount, Zoom, Rotate and Shift (horizontal smear). The distort pass renders into a second ping-pong pair and mixes in its previous output, resampled. Scanlines, static and grain moved into a final output pass, so they never accumulate.
+
+**Revision 10b:** Each matrix column header is a live scope of its source: about 4 s of history at 30 Hz, a dashed centre line for bipolar sources (Hit's baseline is the bottom), a tick for every incoming attack (density) and the current value as a number. Every active cell draws a live bar from its centre showing its current contribution (amount × signal).

@@ -1,17 +1,36 @@
-import { useEffect, useRef } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
-import { Meter } from '@/components/Meter'
+import { EngineContext, SourceScope } from '@/components/Meter'
 import { useDrag } from '@/components/useDrag'
 import { Button } from '@/components/ui/button'
-import { PARAMS, SOURCES, setPatch } from '@/engine/params'
+import { PARAMS, SOURCES, setPatch, signal } from '@/engine/params'
 import { cn } from '@/lib/utils'
 
 const clamp = (v) => Math.max(-1, Math.min(1, v))
 
 // One matrix cell: drag up/down to set how much this data source moves the target.
 // Click an empty cell for +50%, double-click to clear.
-function AmountCell({ amount, label, onChange }) {
+function AmountCell({ amount, source, label, onChange }) {
+  const engine = useContext(EngineContext)
+  const bar = useRef(null)
   const start = useRef(amount)
+
+  // Live contribution of this patch right now (amount x signal), drawn from the centre.
+  useEffect(() => {
+    if (!engine || amount === 0) return
+    let raf
+    const loop = () => {
+      const c = amount * signal(source, engine.sources.latest[source] ?? 0)
+      if (bar.current) {
+        bar.current.style.left = `${50 + Math.min(0, c) * 50}%`
+        bar.current.style.width = `${Math.abs(c) * 50}%`
+      }
+      raf = requestAnimationFrame(loop)
+    }
+    loop()
+    return () => cancelAnimationFrame(raf)
+  }, [engine, amount, source])
+
   const pct = Math.round(amount * 100)
   const drag = useDrag({
     onStart() {
@@ -43,7 +62,7 @@ function AmountCell({ amount, label, onChange }) {
         } else if (e.key === 'Delete' || e.key === 'Backspace') onChange(0)
       }}
       className={cn(
-        'flex h-7 cursor-ns-resize touch-none items-center justify-center rounded font-mono text-[11px] tabular-nums outline-none select-none focus-visible:ring-2 focus-visible:ring-ring',
+        'relative flex h-7 cursor-ns-resize touch-none items-center justify-center overflow-hidden rounded font-mono text-[11px] tabular-nums outline-none select-none focus-visible:ring-2 focus-visible:ring-ring',
         amount === 0 ? 'text-muted-foreground/50 hover:bg-muted' : amount > 0 ? 'text-orange-100' : 'text-sky-100',
       )}
       style={
@@ -53,6 +72,7 @@ function AmountCell({ amount, label, onChange }) {
       }
     >
       {amount === 0 ? '·' : `${pct > 0 ? '+' : ''}${pct}`}
+      {amount !== 0 && <div ref={bar} className="pointer-events-none absolute bottom-0 h-1 bg-white/80" aria-hidden />}
     </div>
   )
 }
@@ -89,7 +109,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className }
                   <span className="@[36rem]:hidden">{s.short}</span>
                   <span className="hidden @[36rem]:inline">{s.label}</span>
                 </div>
-                <Meter id={s.id} />
+                <SourceScope id={s.id} unipolar={s.unipolar} />
               </th>
             ))}
             <th className="w-7" />
@@ -126,6 +146,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className }
                 <td key={s.id}>
                   <AmountCell
                     amount={amountOf(s.id, p.key)}
+                    source={s.id}
                     label={`${s.label} to ${p.module.label} ${p.label}`}
                     onChange={(a) => onPatches(setPatch(patches, s.id, p.key, a))}
                   />
