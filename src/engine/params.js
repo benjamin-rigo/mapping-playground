@@ -4,7 +4,8 @@
 // patchable: false keeps a knob out of the modulation matrix; header: true shows it
 // as a volume slider in the card header instead of a knob.
 
-const p = (sub, id, label, value, extra = {}) => ({ sub, id, label, value, ...extra })
+// Defaults are kept to two decimals, the precision share links store.
+const p = (sub, id, label, value, extra = {}) => ({ sub, id, label, value: Math.round(value * 100) / 100, ...extra })
 
 // Synth algorithms (after Mutable Instruments Plaits): the same three macros mean
 // something different in each. labels = what Harmonics, Timbre and Morph do.

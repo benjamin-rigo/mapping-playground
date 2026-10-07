@@ -120,29 +120,11 @@ export default function App() {
     setSettings(structuredClone(PRESETS.find((p) => p.name === name).settings))
   }
 
-  // Shortens the patch link with spoo.me (free, no key, CORS enabled, redirects
-  // browsers straight through); falls back to the full link if it is unreachable. ClipboardItem with a promise keeps Safari
-  // happy about writing to the clipboard after a network request.
   async function copyLink() {
     history.replaceState(null, '', `#s=${encodeSettings(settings)}`)
-    const long = location.href
-    setCopied('working')
-    const text = fetch('https://spoo.me/', {
-      method: 'POST',
-      headers: { Accept: 'application/json' },
-      body: new URLSearchParams({ url: long }),
-      signal: AbortSignal.timeout(5000),
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
-      .then((j) => (j.short_url ? j.short_url.replace(/^http:/, 'https:') : long))
-      .catch(() => long)
-    try {
-      await navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })])
-    } catch {
-      await navigator.clipboard.writeText(await text)
-    }
-    setCopied((await text) === long ? 'long' : 'short')
-    setTimeout(() => setCopied(false), 2000)
+    await navigator.clipboard.writeText(location.href)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
   }
 
   const responseDepth = settings.patches.filter((x) => x.target === 'global.response').reduce((sum, x) => sum + Math.abs(x.amount), 0)
@@ -259,8 +241,7 @@ export default function App() {
             />
           </label>
           <Button variant="outline" size="sm" onClick={copyLink}>
-            {copied && copied !== 'working' ? <Check /> : <Link />}{' '}
-            {copied === 'working' ? 'Shortening…' : copied === 'short' ? 'Copied short link' : copied === 'long' ? 'Copied full link' : 'Copy link'}
+            {copied ? <Check /> : <Link />} {copied ? 'Copied' : 'Copy link'}
           </Button>
           <Button size="sm" onClick={() => (running ? engine.stop() : engine.start())}>
             {running ? <Square /> : <Play />} {running ? 'Stop' : 'Start'}

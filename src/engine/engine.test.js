@@ -66,6 +66,20 @@ describe('applyPatches', () => {
 })
 
 describe('settings', () => {
+  it('makes short links that round-trip every preset exactly', () => {
+    for (const p of PRESETS) {
+      const code = encodeSettings(p.settings)
+      expect(code.length).toBeLessThan(200)
+      const back = decodeSettings(code)
+      expect(back).toEqual(p.settings)
+    }
+  })
+
+  it('still reads the older JSON links', () => {
+    const json = btoa(JSON.stringify(DEFAULTS)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    expect(decodeSettings(json)).toEqual(DEFAULTS)
+  })
+
   it('round-trips through the hash', () => {
     const s = structuredClone(DEFAULTS)
     s.knobs['distort.tear'] = 0.77

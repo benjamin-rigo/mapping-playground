@@ -62,7 +62,7 @@ export function AboutDialog() {
               Touch any knob to add it to the matrix, then drag a cell up or down to let a data source move it.{' '}
               <em>Hit</em> fires on every attack. The other sources are the attacked port, how popular that port is, the
               attacker’s address, how often it is reported, the density of attacks and the global threat level.{' '}
-              <em>Copy link</em> shares your patch as a short link made with spoo.me. The link only holds knob settings.
+              <em>Copy link</em> shares your patch: the link holds only your knob settings.
             </p>
           </Section>
 

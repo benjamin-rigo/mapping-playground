@@ -286,9 +286,4 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 
 **Revision 12f:**
 - New preset "Night scan", saved from the user's own patch.
-- "Copy link" shortens the patch URL with spoo.me (a POST; free, no key, `access-control-allow-origin: *`). Its 302 sends browsers straight to the full `#s=` link, and the returned http:// link is upgraded to https://. It falls back to the full link on failure or after a 5 s timeout. The clipboard write uses a ClipboardItem promise so Safari accepts it after the network request.
-- Rejected shorteners:
-  - da.gd shows browsers an interstitial page for long URLs.
-  - is.gd returned "database insert failed".
-  - TinyURL's CORS only allows tinyurl.com.
-- The About dialog mentions the shortener.
+- Share links are compact and need no third-party shortener. The format is "c" + base64url of bytes: format byte, master, the knobs that differ from their defaults (PARAMS index, value 0..100) and the patches (source, target index, amount + 100). Knob defaults and preset values are kept to two decimals so links round-trip exactly. The Night scan link went from about 2,760 to about 230 characters. Older JSON links still decode. New knobs must be appended to the end of PARAMS to keep old links valid.

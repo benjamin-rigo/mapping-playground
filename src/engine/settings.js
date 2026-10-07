@@ -1,4 +1,4 @@
-import { DEFAULT_KNOBS, PARAM_BY_KEY, ROOTS, SCALES, SOURCE_IDS, signal, stepValue } from './params.js'
+import { DEFAULT_KNOBS, PARAMS, PARAM_BY_KEY, ROOTS, SCALES, SOURCE_IDS, signal, stepValue } from './params.js'
 
 export { ROOTS, SCALES }
 
@@ -16,9 +16,10 @@ const preset = (name, knobs, patches, extra = {}) => {
   const out = patches.map(({ source, target, amount }) => {
     if (signal(source, 0) === 0) return { source, target, amount }
     k[target] += amount / 2
-    return { source, target, amount: amount / 2 }
+    return { source, target, amount: Math.round((amount / 2) * 100) / 100 }
   })
-  for (const id in k) k[id] = Math.round(Math.max(0, Math.min(1, k[id])) * 1000) / 1000
+  // two decimals, the precision share links keep
+  for (const id in k) k[id] = Math.round(Math.max(0, Math.min(1, k[id])) * 100) / 100
   return {
     name,
     settings: { version: 11, knobs: k, patches: out, master: 0.8, ...extra },
@@ -196,13 +197,37 @@ export function sanitize(input) {
   return out
 }
 
+// Compact share links: a format byte, the master volume, then only the knobs that
+// differ from their defaults (index into PARAMS, value 0..100) and the patches (source,
+// target index, amount + 100), as bytes in base64url. Prefixed with "c" to tell it
+// apart from the older JSON links, which still decode. Indexes follow PARAMS order, so
+// adding knobs at the end keeps old links working.
+const FORMAT = 1
+const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+const unb64url = (str) => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
+
 export function encodeSettings(settings) {
-  return btoa(JSON.stringify(settings)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  const bytes = [FORMAT, Math.round(settings.master * 100)]
+  const changed = PARAMS.map((p, i) => [i, Math.round(settings.knobs[p.key] * 100)]).filter(([i, v]) => v !== Math.round(PARAMS[i].value * 100))
+  bytes.push(changed.length, ...changed.flat())
+  const patches = settings.patches.map((x) => [SOURCE_IDS.indexOf(x.source), PARAMS.findIndex((p) => p.key === x.target), Math.round(x.amount * 100) + 100])
+  bytes.push(patches.length, ...patches.flat())
+  return `c${b64url(bytes)}`
 }
 
 export function decodeSettings(str) {
   try {
-    return sanitize(JSON.parse(atob(str.replace(/-/g, '+').replace(/_/g, '/'))))
+    if (!str.startsWith('c')) return sanitize(JSON.parse(atob(str.replace(/-/g, '+').replace(/_/g, '/'))))
+    const b = unb64url(str.slice(1))
+    if (b[0] !== FORMAT) return null
+    const knobs = { ...DEFAULT_KNOBS }
+    let i = 2
+    for (let n = b[i++]; n > 0; n--, i += 2) if (PARAMS[b[i]]) knobs[PARAMS[b[i]].key] = b[i + 1] / 100
+    const patches = []
+    for (let n = b[i++]; n > 0; n--, i += 3) {
+      if (SOURCE_IDS[b[i]] && PARAMS[b[i + 1]]) patches.push({ source: SOURCE_IDS[b[i]], target: PARAMS[b[i + 1]].key, amount: (b[i + 2] - 100) / 100 })
+    }
+    return sanitize({ version: DEFAULTS.version, knobs, patches, master: b[1] / 100 })
   } catch {
     return null
   }
