@@ -277,3 +277,9 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 **Revision 12c:** Distortion gets **Block size** (from 60 cells down to 3 across the height). Blocks are now hard-off at zero (an explicit guard in the shader). Patched data can still raise Blocks above a knob set to zero, which is shown by the knob's orange arc.
 
 **Revision 12d:** The Random button was removed at the user's request.
+
+**Revision 12e:**
+- Synth Level and Drone Level are volume sliders in their card headers (params flagged `header: true`). They are still selectable and patchable from the matrix.
+- The Visual and Sound panel labels are sticky.
+- The accent colour is white instead of orange; negative patches stay blue.
+- In full screen, the cursor, the full-screen button and the event log hide after 2 s without mouse movement, and come back on movement.

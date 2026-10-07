@@ -11,6 +11,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createEngine } from '@/engine'
 import { MODULES, PARAM_BY_KEY } from '@/engine/params'
+import { cn } from '@/lib/utils'
 import { DEFAULTS, PRESETS, decodeSettings, encodeSettings } from '@/engine/settings'
 
 const STATUS = {
@@ -78,11 +79,26 @@ export default function App() {
     return () => clearTimeout(id)
   }, [engine, settings])
 
+  // In full screen, hide the cursor and the overlays after 2 s without mouse movement.
+  const [idle, setIdle] = useState(false)
+  const idleTimer = useRef(null)
+  const wake = () => {
+    setIdle(false)
+    clearTimeout(idleTimer.current)
+    idleTimer.current = setTimeout(() => setIdle(true), 2000)
+  }
   useEffect(() => {
-    const onChange = () => setFullscreen(document.fullscreenElement === stageRef.current)
+    const onChange = () => {
+      const on = document.fullscreenElement === stageRef.current
+      setFullscreen(on)
+      clearTimeout(idleTimer.current)
+      setIdle(false)
+      if (on) idleTimer.current = setTimeout(() => setIdle(true), 2000)
+    }
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
   }, [])
+  const hidden = fullscreen && idle
   const toggleFullscreen = () => (document.fullscreenElement ? document.exitFullscreen() : stageRef.current?.requestFullscreen())
 
   const running = status !== 'idle'
@@ -137,13 +153,13 @@ export default function App() {
   )
 
   const stage = (
-    <div ref={stageRef} className="relative size-full bg-background">
+    <div ref={stageRef} onPointerMove={fullscreen ? wake : undefined} className={cn('relative size-full bg-background', hidden && 'cursor-none')}>
       <Button
         variant="secondary"
         size="icon-sm"
         onClick={toggleFullscreen}
         aria-label={fullscreen ? 'Exit full screen' : 'Full screen'}
-        className="absolute top-3 right-3 z-10 opacity-70 hover:opacity-100"
+        className={cn('absolute top-3 right-3 z-10 opacity-70 transition-opacity hover:opacity-100', hidden && 'pointer-events-none opacity-0')}
       >
         {fullscreen ? <Minimize /> : <Maximize />}
       </Button>
@@ -157,11 +173,11 @@ export default function App() {
           Press start to listen
         </button>
       )}
-      {running && <EventLog engine={engine} />}
+      {running && !hidden && <EventLog engine={engine} />}
     </div>
   )
 
-  const panelClass = 'flex h-full flex-col gap-3 overflow-y-auto px-3 py-3 max-md:h-auto max-md:overflow-visible max-md:px-0 max-md:py-0'
+  const panelClass = 'flex h-full flex-col gap-3 overflow-y-auto px-3 pb-3 max-md:h-auto max-md:overflow-visible max-md:px-0 max-md:pb-0'
   const card = (m) => (
     <ModuleCard
       key={m.id}
@@ -176,14 +192,14 @@ export default function App() {
 
   const visualPanel = (
     <div className={panelClass}>
-      <h2 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Visual</h2>
+      <h2 className="sticky top-0 z-10 -mx-3 -mb-3 bg-background px-3 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase max-md:mx-0 max-md:px-0">Visual</h2>
       {MODULES.filter((m) => m.group === 'visual').map((m) => card(m))}
     </div>
   )
 
   const soundPanel = (
     <div className={panelClass}>
-      <h2 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Sound</h2>
+      <h2 className="sticky top-0 z-10 -mx-3 -mb-3 bg-background px-3 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase max-md:mx-0 max-md:px-0">Sound</h2>
       {MODULES.filter((m) => m.group === 'sound').map((m) => card(m))}
     </div>
   )

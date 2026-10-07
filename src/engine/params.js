@@ -1,7 +1,8 @@
 // Every knob in the app. Values are always 0..1; each module maps them to real units.
 // kind: 'event' knobs are read when an attack fires the synth, 'continuous' ones every
 // frame from smoothed sources. sub groups knobs inside a module card.
-// patchable: false keeps a knob out of the modulation matrix.
+// patchable: false keeps a knob out of the modulation matrix; header: true shows it
+// as a volume slider in the card header instead of a knob.
 
 const p = (sub, id, label, value, extra = {}) => ({ sub, id, label, value, ...extra })
 
@@ -52,7 +53,7 @@ export const MODULES = [
       p('Shape', 'fold', 'Fold', 0), p('Shape', 'punch', 'Punch', 0),
       p('Filter', 'cutoff', 'Cutoff', 0.7), p('Filter', 'res', 'Res', 0.15), p('Filter', 'fenv', 'Env amt', 0.3),
       p('Envelope', 'attack', 'Attack', 0.03), p('Envelope', 'decay', 'Decay', 0.35), p('Envelope', 'sustain', 'Sustain', 0.05), p('Envelope', 'release', 'Release', 0.5),
-      p('Voice', 'note', 'Note', 0.5), p('Voice', 'range', 'Range', 0.5), p('Voice', 'level', 'Level', 0.7), p('Voice', 'pan', 'Pan', 0.5), p('Voice', 'chance', 'Chance', 0.85),
+      p('Voice', 'note', 'Note', 0.5), p('Voice', 'range', 'Range', 0.5), p('Voice', 'level', 'Level', 0.7, { header: true }), p('Voice', 'pan', 'Pan', 0.5), p('Voice', 'chance', 'Chance', 0.85),
     ],
   },
   {
@@ -66,7 +67,7 @@ export const MODULES = [
       p('FM', 'index', 'Index', 0.25), p('FM', 'feedback', 'Feedback', 0), p('FM', 'spread', 'Spread', 0.3),
       p('Filter', 'cutoff', 'Cutoff', 0.6), p('Filter', 'res', 'Res', 0.15),
       p('Filter', 'type', 'Type', 0, { format: (v) => FILTER_TYPES[step(v, 3)].label }),
-      p('Movement', 'motion', 'Motion', 0.3), p('Movement', 'level', 'Level', 0.45),
+      p('Movement', 'motion', 'Motion', 0.3), p('Movement', 'level', 'Level', 0.45, { header: true }),
     ],
   },
   {
