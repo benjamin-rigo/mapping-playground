@@ -16,7 +16,7 @@ float hash(vec2 p) {
 // the flow direction and broken into sliding blocks (the only distortion fed back).
 const FRAME = `${COMMON}
 uniform sampler2D uPrev;
-uniform float uScale, uDetail, uTurb, uSoft, uThreshold, uFb, uZoom, uRot, uDrift, uBlocks;
+uniform float uScale, uDetail, uTurb, uSoft, uThreshold, uFb, uZoom, uRot, uDrift, uBlocks, uBlockSize;
 uniform vec2 uFlow, uDir;
 uniform vec3 uPaper, uInkA, uInkB;
 
@@ -56,9 +56,9 @@ void main() {
   d.x /= aspect;
   vec2 fuv = 0.5 + d - uDir * uDrift * 0.006;
 
-  float cells = 18.0;
+  float cells = mix(60.0, 3.0, uBlockSize);
   vec2 block = floor(uv * vec2(cells * aspect, cells));
-  float stuck = step(hash(block + floor(uTime * 4.0)), uBlocks * 0.6);
+  float stuck = uBlocks > 0.005 ? step(hash(block + floor(uTime * 4.0)), uBlocks * 0.6) : 0.0;
   fuv += stuck * (vec2(hash(block + 1.7), hash(block + 4.1)) - 0.5) * 0.03;
 
   vec3 prev = texture2D(uPrev, fuv).rgb;
@@ -252,6 +252,7 @@ export function createField(canvas) {
       gl.uniform1f(f.uRot, v['noise.rotate'])
       gl.uniform1f(f.uDrift, v['noise.drift'])
       gl.uniform1f(f.uBlocks, v['distort.blocks'])
+      gl.uniform1f(f.uBlockSize, v['distort.blockSize'])
       gl.uniform3fv(f.uPaper, hsl(hue, sat * 0.25, 0.04 + paper * 0.93))
       gl.uniform3fv(f.uInkA, hsl(hue, sat, inkL))
       gl.uniform3fv(f.uInkB, hsl(hue + v['noise.spread'] * 0.5, sat, Math.min(0.85, inkL + 0.12)))

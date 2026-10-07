@@ -273,3 +273,5 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 - A unit test checks that 29 seeded randoms are all valid and audible.
 
 **Revision 12b:** The Drone's Inharm knob is removed, and its Bright knob becomes a **Filter** section: Cutoff (still opens with the FM index), Res, and Type (LP / BP / HP). BP and HP get a make-up gain, so all three types play at a similar level (measured peaks 0.05–0.09). Spread moved into the FM section. Settings version 11.
+
+**Revision 12c:** Distortion gets **Block size** (from 60 cells down to 3 across the height). Blocks are now hard-off at zero (an explicit guard in the shader). Patched data can still raise Blocks above a knob set to zero, which is shown by the knob's orange arc.
