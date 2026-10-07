@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { Meter } from '@/components/Meter'
 import { useDrag } from '@/components/useDrag'
 import { Button } from '@/components/ui/button'
-import { SOURCES, TARGETS, setPatch } from '@/engine/params'
+import { PARAMS, SOURCES, setPatch } from '@/engine/params'
 import { cn } from '@/lib/utils'
 
 const clamp = (v) => Math.max(-1, Math.min(1, v))
@@ -59,7 +59,7 @@ function AmountCell({ amount, label, onChange }) {
 
 export function ModMatrix({ settings, selected, onSelect, onPatches, className }) {
   const { patches } = settings
-  const rows = TARGETS
+  const rows = PARAMS.filter((p) => p.patchable && (p.key === selected || patches.some((x) => x.target === p.key)))
   const rowRefs = useRef({})
   const box = useRef(null)
 
@@ -96,6 +96,13 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className }
           </tr>
         </thead>
         <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={SOURCES.length + 2} className="py-4 pl-1 text-muted-foreground">
+                Touch any knob, then drag a cell up or down to let that data move it.
+              </td>
+            </tr>
+          )}
           {rows.map((p) => (
             <tr
               key={p.key}
@@ -109,7 +116,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className }
                   className={cn('block w-full truncate py-0.5 text-left leading-tight outline-none focus-visible:underline', p.key === selected ? 'text-orange-300' : 'text-foreground')}
                 >
                   <span className="block truncate text-[10px] text-muted-foreground @[36rem]:inline @[36rem]:text-xs">
-                    {p.group}
+                    {p.module.label}
                     <span className="hidden @[36rem]:inline"> · </span>
                   </span>
                   {p.label}
@@ -119,7 +126,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className }
                 <td key={s.id}>
                   <AmountCell
                     amount={amountOf(s.id, p.key)}
-                    label={`${s.label} to ${p.group} ${p.label}`}
+                    label={`${s.label} to ${p.module.label} ${p.label}`}
                     onChange={(a) => onPatches(setPatch(patches, s.id, p.key, a))}
                   />
                 </td>
@@ -128,7 +135,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className }
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Clear ${p.group} ${p.label}`}
+                  aria-label={`Clear ${p.module.label} ${p.label}`}
                   onClick={() => onPatches(patches.filter((x) => x.target !== p.key))}
                 >
                   <X />

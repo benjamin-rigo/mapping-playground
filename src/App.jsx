@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { Check, Link, Play, Square } from 'lucide-react'
 import { EngineContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
-import { SceneCard } from '@/components/SceneCard'
-import { TensionFader } from '@/components/TensionFader'
+import { ModuleCard } from '@/components/ModuleCard'
 import { RotaryKnob } from '@/components/RotaryKnob'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,8 +10,9 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createEngine } from '@/engine'
 import { expMap } from '@/engine/synth'
-import { TARGET_KEYS } from '@/engine/params'
-import { DEFAULTS, PRESETS, ROOTS, SCALES, decodeSettings, encodeSettings, randomScene } from '@/engine/settings'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MODULES, PARAM_BY_KEY } from '@/engine/params'
+import { DEFAULTS, PRESETS, ROOTS, SCALES, decodeSettings, encodeSettings } from '@/engine/settings'
 
 const STATUS = {
   idle: { label: 'Stopped', variant: 'outline' },
@@ -78,7 +78,7 @@ export default function App() {
   const [status, setStatus] = useState('idle')
   const [copied, setCopied] = useState(false)
   const [selected, setSelected] = useState(null)
-  const [preview, setPreview] = useState(null)
+  const [tab, setTab] = useState('sound')
   const isDesktop = useIsDesktop()
 
   useEffect(() => {
@@ -104,22 +104,19 @@ export default function App() {
     setSettings((s) => ({ ...s, ...patch }))
   }
   const setPatches = (patches) => edit({ patches })
-  const select = useCallback((key) => setSelected(key), [])
-  const setScene = (name, scene) => edit({ scenes: { ...settings.scenes, [name]: scene } })
-  const pickPreview = (p) => {
-    setPreview(p)
-    engine?.setPreview(p)
-  }
-
-  // How far the patches can move each target, for the knobs' modulation arcs.
-  const depth = Object.fromEntries(TARGET_KEYS.map((k) => [k, 0]))
-  for (const x of settings.patches) depth[x.target] += Math.abs(x.amount)
+  const setKnob = useCallback((v, key) => {
+    setPreset('')
+    setSettings((s) => ({ ...s, knobs: { ...s.knobs, [key]: v } }))
+  }, [])
+  const select = useCallback((key) => {
+    setSelected(key)
+    setTab(PARAM_BY_KEY[key].module.group)
+  }, [])
 
   function loadPreset(name) {
     setPreset(name)
     setSelected(null)
     setSettings(structuredClone(PRESETS.find((p) => p.name === name).settings))
-    pickPreview(null)
   }
 
   async function copyLink() {
@@ -151,9 +148,7 @@ export default function App() {
 
   const controls = (
     <div className="flex h-full flex-col gap-3 overflow-y-auto px-3 py-3 max-md:h-auto max-md:overflow-visible max-md:px-0 max-md:py-0">
-      <section className="order-last grid grid-cols-[1fr_1fr_auto_auto_auto] items-center gap-2 rounded-lg border border-border bg-card p-3">
-        <PickField label="Root" value={settings.root} options={ROOTS} onChange={(root) => edit({ root })} />
-        <PickField label="Scale" value={settings.scale} options={SCALES} format={cap} onChange={(scale) => edit({ scale })} />
+      <section className="flex items-center justify-around gap-2 rounded-lg border border-border bg-card p-3">
         <RotaryKnob
           label="Response"
           name="Response time"
@@ -178,34 +173,45 @@ export default function App() {
           onChange={(master) => edit({ master })}
         />
       </section>
-      <TensionFader
-        value={settings.tension}
-        onChange={(tension) => edit({ tension })}
-        selected={selected === 'tension'}
-        onSelect={() => select('tension')}
-        preview={preview}
-        onPreview={pickPreview}
-      />
-      <SceneCard
-        title="Calm"
-        tone="text-sky-300"
-        scene={settings.scenes.calm}
-        onChange={(s) => setScene('calm', s)}
-        onRandomize={() => setScene('calm', randomScene())}
-        onSelect={select}
-        selected={selected}
-        depth={depth}
-      />
-      <SceneCard
-        title="Storm"
-        tone="text-orange-300"
-        scene={settings.scenes.storm}
-        onChange={(s) => setScene('storm', s)}
-        onRandomize={() => setScene('storm', randomScene())}
-        onSelect={select}
-        selected={selected}
-        depth={depth}
-      />
+      <Tabs value={tab} onValueChange={setTab} className="gap-3">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="sound">Sound</TabsTrigger>
+          <TabsTrigger value="visual">Visual</TabsTrigger>
+        </TabsList>
+        <TabsContent value="sound" className="space-y-3">
+          {MODULES.filter((m) => m.group === 'sound').map((m) => (
+            <ModuleCard
+              key={m.id}
+              module={m}
+              knobs={settings.knobs}
+              patches={settings.patches}
+              selected={selected}
+              onKnob={setKnob}
+              onSelect={select}
+            >
+              {m.id === 'drone' && (
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  <PickField label="Root" value={settings.root} options={ROOTS} onChange={(root) => edit({ root })} />
+                  <PickField label="Scale" value={settings.scale} options={SCALES} format={cap} onChange={(scale) => edit({ scale })} />
+                </div>
+              )}
+            </ModuleCard>
+          ))}
+        </TabsContent>
+        <TabsContent value="visual" className="space-y-3">
+          {MODULES.filter((m) => m.group === 'visual').map((m) => (
+            <ModuleCard
+              key={m.id}
+              module={m}
+              knobs={settings.knobs}
+              patches={settings.patches}
+              selected={selected}
+              onKnob={setKnob}
+              onSelect={select}
+            />
+          ))}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 

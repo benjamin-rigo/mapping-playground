@@ -203,3 +203,15 @@ Feedback: too many equal-weight knobs, small visible change, the tool felt rigid
 - **Sound engine:** four layers whose levels come from the morph. Drone (fat-saw chord loop, LFO lowpass) and Texture (pink noise through a swept bandpass) are continuous. Bells (FM strike, pitch from the port, as in *Listen to Wikipedia*) and Pulse (stuttering filtered noise clicks) are triggered by attacks. Everything shares drive → bit crush → delay → reverb, so Storm can distort the whole mix.
 - **Pedagogy (after the Sonification Handbook, ch. 15, on parameter mapping):** participants make the three mapping decisions explicitly. What calm is (A), what an attack is (B), and which data pushes between them, in which direction and how fast (matrix, polarity, Response and Hit decay).
 - **Not yet built:** the Advanced view (direct access to the low-level parameters behind the macros), and categorical port classes (Web, Remote, DB, IoT) as a voice and colour selector.
+
+## Revision 10 (2026-10-07): four modules, everything mappable
+
+The scenes/tension concept was dropped. The tool is now four clearly separated modules. Each knob in them can be driven by data from one matrix (rows = touched or patched knobs; columns = Hit plus the six data types; data is bipolar around the knob, Hit is one-way).
+
+- **Synth** (event, one note per attack, with sub-groups): Oscillator (wavetable-like Shape, Bright, FM, FM ratio, Detune), Layers (Osc 2 detuned saw stack, Cross-mod Osc 2 → Osc 1, Sub, Noise), Filter (Cutoff, Res, Env amount, per voice), Envelope (ADSR), Voice (Note, Range, Level, Pan, Chance). Native Web Audio voice per attack.
+- **Drone** (continuous): Root and Scale selectors (8 scales, including phrygian, lydian and whole tone), Pitch (where the chord sits inside the Range), Range (1–4 octaves the pitch can move through), Glide, Voicing (root → +third → +fifth → +octave), Timbre (the same harmonic-table morph as the synth), Bright (lowpass), Spread (detune of 2 oscillators per chord tone), Motion (filter and amplitude LFOs), Level. The chord only re-targets when the quantised note changes, and it glides there.
+- **FX** (continuous, shared): Drive, Crush, Delay, Time, Feedback, Reverb, Size.
+- **Noise** (continuous, the base visual): Color (Hue, Hue spread, Saturation, Paper, Contrast), Shape (Scale, Detail, Blur, Turbulence), Motion (Speed, Direction), Feedback (Amount, Zoom, Rotate, Drift along the direction). This runs in the feedback frame pass.
+- **Distortion** (continuous): Glitch (Blocks, which is fed back as sliding stuck blocks; Tear; Pixelate; RGB split), Noise (Static, Scanlines, Grain), Color (Hue shift, Invert, Posterize, Burn). Everything except Blocks runs in the present pass, so it breaks the picture without accumulating.
+- **Global:** Response (source smoothing), Hit decay and Master.
+- **Presets:** Pastel drift, Glass rain and Breakdown.
