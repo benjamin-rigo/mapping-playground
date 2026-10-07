@@ -120,16 +120,21 @@ export default function App() {
     setSettings(structuredClone(PRESETS.find((p) => p.name === name).settings))
   }
 
-  // Shortens the patch link with da.gd (free, no key, CORS enabled); falls back to the
-  // full link if the service is unreachable. ClipboardItem with a promise keeps Safari
+  // Shortens the patch link with spoo.me (free, no key, CORS enabled, redirects
+  // browsers straight through); falls back to the full link if it is unreachable. ClipboardItem with a promise keeps Safari
   // happy about writing to the clipboard after a network request.
   async function copyLink() {
     history.replaceState(null, '', `#s=${encodeSettings(settings)}`)
     const long = location.href
     setCopied('working')
-    const text = fetch(`https://da.gd/s?url=${encodeURIComponent(long)}`, { signal: AbortSignal.timeout(5000) })
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(r.status))))
-      .then((t) => (t.trim().startsWith('https://da.gd/') ? t.trim() : long))
+    const text = fetch('https://spoo.me/', {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      body: new URLSearchParams({ url: long }),
+      signal: AbortSignal.timeout(5000),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status))))
+      .then((j) => (j.short_url ? j.short_url.replace(/^http:/, 'https:') : long))
       .catch(() => long)
     try {
       await navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })])

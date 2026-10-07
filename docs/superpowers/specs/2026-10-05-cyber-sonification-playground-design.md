@@ -286,6 +286,9 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 
 **Revision 12f:**
 - New preset "Night scan", saved from the user's own patch.
-- "Copy link" shortens the patch URL with da.gd (free, no key, `access-control-allow-origin: *`, keeps the long `#s=` fragment intact through its redirect). It falls back to the full link on failure or after a 5 s timeout. The clipboard write uses a ClipboardItem promise so Safari accepts it after the network request.
-- is.gd was rejected (it returned "database insert failed"), and so was TinyURL (its CORS only allows tinyurl.com).
+- "Copy link" shortens the patch URL with spoo.me (a POST; free, no key, `access-control-allow-origin: *`). Its 302 sends browsers straight to the full `#s=` link, and the returned http:// link is upgraded to https://. It falls back to the full link on failure or after a 5 s timeout. The clipboard write uses a ClipboardItem promise so Safari accepts it after the network request.
+- Rejected shorteners:
+  - da.gd shows browsers an interstitial page for long URLs.
+  - is.gd returned "database insert failed".
+  - TinyURL's CORS only allows tinyurl.com.
 - The About dialog mentions the shortener.
