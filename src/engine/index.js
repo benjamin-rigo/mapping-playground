@@ -1,8 +1,8 @@
 import { createField } from './field.js'
 import { createSources, normalize } from './fields.js'
 import { loadDataset } from './isc.js'
-import { PARAM_BY_KEY, QUANTIZE_STEPS, applyPatches } from './params.js'
-import { step } from './music.js'
+import { PARAM_BY_KEY, QUANTIZE_GRID, applyPatches } from './params.js'
+import { bpmOf, step } from './music.js'
 import { createSampler } from './sampler.js'
 import { DEFAULTS } from './settings.js'
 import { createSynth, expMap } from './synth.js'
@@ -28,15 +28,6 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
   // Latest modulated value of every knob, read by the UI to animate knobs.
   const live = {}
 
-  // Quantize: snap every incoming data value to N steps before it modulates anything.
-  function quantized(src) {
-    const n = QUANTIZE_STEPS[step(live['global.quantize'] ?? settings.knobs['global.quantize'], QUANTIZE_STEPS.length)]
-    if (!n) return src
-    const out = {}
-    for (const k in src) out[k] = Math.round(src[k] * (n - 1)) / (n - 1)
-    return out
-  }
-
   // Drone Smooth: a second, slower follower on the drone's continuous knobs, so it can
   // drift over many seconds while the rest reacts fast. Stepped knobs are not smoothed
   // (they would pass through every step); Hold paces those instead.
@@ -54,19 +45,40 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
     return out
   }
 
-  const sampler = createSampler({
-    emit(event) {
-      recent.push(performance.now())
-      const fields = normalize(event, data)
-      sources.onEvent(fields)
-      hit = 1
-      sources.latest.hit = 1
-      const values = applyPatches(settings.knobs, settings.patches, quantized(sources.latest), 'event')
-      for (const key in values) if (PARAM_BY_KEY[key].kind === 'event') live[key] = values[key]
-      synth.play(values)
-      for (const fn of listeners) fn(event)
-    },
-  })
+  // Quantize: an attack waits for the next point on the tempo grid. If several arrive
+  // within one grid step, the latest one plays (sample and hold). Density still counts
+  // every arrival.
+  let pending = null
+  let gridTimer = null
+  function arrive(event) {
+    recent.push(performance.now())
+    const beats = QUANTIZE_GRID[step(live['global.quantize'] ?? settings.knobs['global.quantize'], QUANTIZE_GRID.length)][1]
+    if (!beats) return fire(event)
+    pending = event
+    if (gridTimer != null) return
+    const period = (beats * 60000) / bpmOf(live['global.bpm'] ?? settings.knobs['global.bpm'])
+    const now = performance.now()
+    const wait = Math.ceil(now / period) * period - now
+    gridTimer = setTimeout(() => {
+      gridTimer = null
+      const e = pending
+      pending = null
+      if (e && running) fire(e)
+    }, wait)
+  }
+
+  function fire(event) {
+    const fields = normalize(event, data)
+    sources.onEvent(fields)
+    hit = 1
+    sources.latest.hit = 1
+    const values = applyPatches(settings.knobs, settings.patches, sources.latest, 'event')
+    for (const key in values) if (PARAM_BY_KEY[key].kind === 'event') live[key] = values[key]
+    synth.play(values)
+    for (const fn of listeners) fn(event)
+  }
+
+  const sampler = createSampler({ emit: arrive })
 
   function frame(now) {
     const dt = Math.min(0.1, (now - last) / 1000)
@@ -79,7 +91,7 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
     sources.latest.hit = hit
     sources.smooth.hit = hit
 
-    const values = applyPatches(settings.knobs, settings.patches, quantized(sources.smooth), 'continuous')
+    const values = applyPatches(settings.knobs, settings.patches, sources.smooth, 'continuous')
     for (const key in values) if (PARAM_BY_KEY[key].kind === 'continuous') live[key] = values[key]
     field.render(values, dt)
     audioClock += dt
@@ -113,6 +125,9 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
     stop() {
       running = false
       sampler.stop()
+      clearTimeout(gridTimer)
+      gridTimer = null
+      pending = null
       clearInterval(refreshTimer)
       synth.stop()
       onStatus?.('idle')

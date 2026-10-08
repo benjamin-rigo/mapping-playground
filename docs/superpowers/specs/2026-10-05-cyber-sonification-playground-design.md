@@ -345,3 +345,8 @@ All four are mappable and appended to LINK_KEYS. Measured at 61 fps with each on
 - A Save button next to the preset picker opens a dialog. The user names the current patch (including master volume); an existing name is replaced (the dialog says so), and saved presets can be deleted.
 - Saved presets are stored in this browser's localStorage as compact share codes, so they survive knob additions and removals. Every storage access is guarded, and a save failure shows a message.
 - The picker groups presets as Built-in and My presets.
+
+**Revision 13e (timing quantize):** Quantize now works on time, not values.
+- It sets a grid at the global Tempo: Off, 1/32, 1/16, 1/8, 1/4, 1/2 or 1 bar. Each attack waits for the next grid point before it fires the synth, Hit and the event knobs.
+- When several attacks arrive within one step, the latest plays (sample and hold). Density still counts every arrival.
+- Measured at 1/8 and 120 BPM: note onsets fall on 250 ms multiples within 4 ms.

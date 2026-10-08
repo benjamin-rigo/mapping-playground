@@ -38,7 +38,16 @@ export const DRONE_RATIOS = [0.5, 1, 1.5, 2, 3, 4, 5, 7]
 export const ARP_MODES = ['Off', 'Up', 'Down', 'Up-down', 'Random']
 // Arp rates: a subset of the note divisions.
 export const ARP_RATES = DIVISIONS.filter(([name]) => ['1/32', '1/16T', '1/16', '1/8T', '1/8', '1/4T', '1/4'].includes(name))
-export const QUANTIZE_STEPS = [0, 2, 3, 4, 6, 8, 12, 16, 24]
+// Quantize: incoming attacks wait for the next point on this tempo grid (in beats).
+export const QUANTIZE_GRID = [
+  ['Off', 0],
+  ['1/32', 0.125],
+  ['1/16', 0.25],
+  ['1/8', 0.5],
+  ['1/4', 1],
+  ['1/2', 2],
+  ['1 bar', 4],
+]
 // Drone Hold: how often (in beats) the chord, key and scale may change. 0 = free.
 export const HOLD_BEATS = [
   ['Free', 0],
@@ -70,7 +79,7 @@ export const MODULES = [
     id: 'global', group: 'matrix', label: 'Matrix', kind: 'continuous',
     params: [
       p('Reaction', 'response', 'Response', 0.25, { format: time(0.01, 3) }),
-      p('Reaction', 'quantize', 'Quantize', 0, { format: (v) => (QUANTIZE_STEPS[step(v, QUANTIZE_STEPS.length)] ? `${QUANTIZE_STEPS[step(v, QUANTIZE_STEPS.length)]} steps` : 'Off') }),
+      p('Reaction', 'quantize', 'Quantize', 0, { format: (v) => QUANTIZE_GRID[step(v, QUANTIZE_GRID.length)][0] }),
       p('Reaction', 'bpm', 'Tempo', 0.5, { format: (v) => `${bpmOf(v)} BPM` }),
     ],
   },
