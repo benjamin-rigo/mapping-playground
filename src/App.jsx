@@ -150,20 +150,17 @@ export default function App() {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  const matrix = (className) => (
-    <ModMatrix
-      settings={settings}
-      selected={selected}
-      onSelect={select}
-      onPatches={setPatches}
-      className={className}
-      corner={['global.response', 'global.quantize', 'global.bpm'].map((key) => {
+  // Response, Quantize and Tempo shape everything, so they live in the header.
+  const globals = (
+    <div className="flex items-center gap-3" role="group" aria-label="Timing">
+      {['global.response', 'global.quantize', 'global.bpm'].map((key) => {
         const p = PARAM_BY_KEY[key]
         const depth = settings.patches.filter((x) => x.target === key).reduce((sum, x) => sum + Math.abs(x.amount), 0)
         return (
           <RotaryKnob
             key={key}
             id={key}
+            compact
             label={p.label}
             name={p.label}
             value={settings.knobs[key]}
@@ -177,6 +174,16 @@ export default function App() {
           />
         )
       })}
+    </div>
+  )
+
+  const matrix = (className) => (
+    <ModMatrix
+      settings={settings}
+      selected={selected}
+      onSelect={select}
+      onPatches={setPatches}
+      className={className}
     />
   )
 
@@ -240,9 +247,10 @@ export default function App() {
           <h1 className="order-1 min-w-0 flex-1 truncate text-sm font-semibold tracking-tight md:order-none md:flex-none">
             Cyber Sonification Playground
           </h1>
-          <div className="order-2 md:order-none md:mr-auto">
+          <div className="order-2 md:order-none">
             <AboutDialog />
           </div>
+          <div className="order-9 basis-full md:order-none md:mr-auto md:ml-4 md:basis-auto">{globals}</div>
           <div className="order-4 h-0 basis-full md:hidden" aria-hidden />
           <Badge variant={STATUS[status].variant} aria-live="polite" className="order-5 md:order-none">
             <span className="sm:hidden">{STATUS[status].short}</span>

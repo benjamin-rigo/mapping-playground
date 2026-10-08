@@ -76,7 +76,7 @@ function AmountCell({ amount, source, label, onChange }) {
   )
 }
 
-export function ModMatrix({ settings, selected, onSelect, onPatches, className, corner }) {
+export function ModMatrix({ settings, selected, onSelect, onPatches, className }) {
   const { patches } = settings
   const rows = PARAMS.filter((p) => p.patchable && (p.key === selected || patches.some((x) => x.target === p.key)))
   const rowRefs = useRef({})
@@ -96,10 +96,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className, 
 
   return (
     <section ref={box} className={cn('@container overflow-auto', className)} aria-label="Modulation matrix">
-      <div className="flex items-center gap-4 pt-2">
-        <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Matrix</span>
-        {corner}
-      </div>
+      <div className="pt-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Matrix</div>
       <table className="w-full table-fixed border-separate border-spacing-x-1 border-spacing-y-0.5 text-xs">
         <thead className="sticky top-0 z-10 bg-background">
           <tr>

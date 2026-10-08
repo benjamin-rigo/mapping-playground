@@ -376,3 +376,5 @@ All four are mappable and appended to LINK_KEYS. Measured at 61 fps with each on
 - Static and grain use a sine-free hash (Dave Hoskins' hash13) with a frame counter as the third coordinate. The old `fract(sin(dot(...)) * 43758)` lost precision on the GPU and drew diagonal streaks. Grain is now per channel, slightly coloured.
 - The canvas renders at full resolution (up to 1.5× DPR, following the adaptive scale), while the noise and distortion passes stay low-res. So the output pass (grain, static, dither, halftone) draws per-pixel detail instead of upscaled blocks. Dither and halftone are scaled to CSS pixels.
 - Measured on full-strength static: the largest spatial autocorrelation fell from 0.38 to about 0.04–0.13, which is noise, with no repeating lag. An interleaved A/B run showed no fps difference.
+
+**Revision 14c:** Response, Quantize and Tempo moved from the matrix toolbar into the header, as compact knobs (label and value beside the knob). They stay selectable and patchable. On desktop they sit after the title and About; on mobile they get their own header row.

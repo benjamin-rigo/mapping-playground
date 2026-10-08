@@ -26,7 +26,7 @@ function arc(from, to) {
 // Drag up/down (touch: left/right) to turn; touching it selects it (highlights its row in the matrix);
 // double-click to reset. The faint white arc is the modulation range; the bright
 // arc and dot show where the data is pushing it right now.
-export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, defaultValue, onChange, onSelect, selected, modNeg = 0, modPos = 0, display }) {
+export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, defaultValue, onChange, onSelect, selected, modNeg = 0, modPos = 0, display, compact = false }) {
   const engine = useContext(EngineContext)
   const liveArc = useRef(null)
   const liveDot = useRef(null)
@@ -86,7 +86,8 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
   const hi = clamp01(value + modPos)
 
   return (
-    <div className="flex min-w-0 flex-col items-center gap-0.5">
+    // compact: label and value beside the knob instead of under it (for the header)
+    <div className={cn('flex min-w-0 items-center', compact ? 'flex-row gap-1.5' : 'flex-col gap-0.5')}>
       <div
         role="slider"
         tabIndex={0}
@@ -122,10 +123,12 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
           <circle cx={point(value, 7)[0]} cy={point(value, 7)[1]} r="1.8" className="fill-foreground" />
         </svg>
       </div>
-      <span className={cn('max-w-full truncate text-[10px] leading-tight', selected ? 'font-medium text-white' : 'text-muted-foreground')}>
-        {label}
-      </span>
-      <span className="font-mono text-[10px] leading-none tabular-nums text-muted-foreground/80">{display ?? value.toFixed(2)}</span>
+      <div className={cn('flex min-w-0 flex-col', compact ? 'items-start gap-0.5' : 'items-center gap-0.5')}>
+        <span className={cn('max-w-full truncate text-[10px] leading-tight', selected ? 'font-medium text-white' : 'text-muted-foreground')}>
+          {label}
+        </span>
+        <span className="font-mono text-[10px] leading-none whitespace-nowrap tabular-nums text-muted-foreground/80">{display ?? value.toFixed(2)}</span>
+      </div>
     </div>
   )
 })
