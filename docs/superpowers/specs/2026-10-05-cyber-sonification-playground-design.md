@@ -340,3 +340,8 @@ All four are mappable and appended to LINK_KEYS. Measured at 61 fps with each on
 - **Hold** (Free, 1/4, 1/2, 1 bar, 2 bars, 4 bars, 8 bars, at the global Tempo; default 1 bar) lets the chord change, and with it the key the synth follows, at most once per period.
 - **Smooth** (50 ms–30 s) adds a second, slow follower on the drone's continuous knobs. It skips the stepped knobs (root, scale, ratio, type), which Hold paces instead. The drone knobs' live arcs show the smoothed value.
 - Measured with Port → Drone Pitch at 120 BPM: Free gave 88 chord changes in 8 s, 1/2 gave 6, and 2 bars gave 2.
+
+**Revision 13d (saved presets):**
+- A Save button next to the preset picker opens a dialog. The user names the current patch (including master volume); an existing name is replaced (the dialog says so), and saved presets can be deleted.
+- Saved presets are stored in this browser's localStorage as compact share codes, so they survive knob additions and removals. Every storage access is guarded, and a save failure shows a message.
+- The picker groups presets as Built-in and My presets.

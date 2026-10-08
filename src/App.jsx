@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { AudioLines, Check, Grid3x3, Image, Link, Maximize, Minimize, Play, Square, Volume2 } from 'lucide-react'
 import { AboutDialog } from '@/components/AboutDialog'
+import { SavePresetDialog } from '@/components/SavePresetDialog'
+import { deletePreset, presetSettings, readPresets, savePreset } from '@/lib/userPresets'
 import { EngineContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
 import { ModuleCard } from '@/components/ModuleCard'
@@ -9,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createEngine } from '@/engine'
 import { MODULES, PARAM_BY_KEY } from '@/engine/params'
 import { cn } from '@/lib/utils'
@@ -115,10 +117,31 @@ export default function App() {
   }, [])
   const select = useCallback((key) => setSelected(key), [])
 
-  function loadPreset(name) {
-    setPreset(name)
+  const [userPresets, setUserPresets] = useState(readPresets)
+
+  // value is "b:<name>" for built-in presets, "u:<name>" for the user's own
+  function loadPreset(value) {
+    const name = value.slice(2)
+    const settings = value.startsWith('u:')
+      ? presetSettings(userPresets.find((p) => p.name === name))
+      : structuredClone(PRESETS.find((p) => p.name === name).settings)
+    if (!settings) return
+    setPreset(value)
     setSelected(null)
-    setSettings(structuredClone(PRESETS.find((p) => p.name === name).settings))
+    setSettings(settings)
+  }
+
+  function saveUserPreset(name) {
+    const next = savePreset(name, settings)
+    if (!next) return false
+    setUserPresets(next)
+    setPreset(`u:${name}`)
+    return true
+  }
+
+  function deleteUserPreset(name) {
+    setUserPresets(deletePreset(name))
+    if (preset === `u:${name}`) setPreset('')
   }
 
   async function copyLink() {
@@ -231,13 +254,33 @@ export default function App() {
               <SelectValue placeholder="Presets" />
             </SelectTrigger>
             <SelectContent position="popper">
-              {PRESETS.map((p) => (
-                <SelectItem key={p.name} value={p.name}>
-                  {p.name}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                <SelectLabel>Built-in</SelectLabel>
+                {PRESETS.map((p) => (
+                  <SelectItem key={p.name} value={`b:${p.name}`}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+              {userPresets.length > 0 && (
+                <SelectGroup>
+                  <SelectLabel>My presets</SelectLabel>
+                  {userPresets.map((p) => (
+                    <SelectItem key={p.name} value={`u:${p.name}`}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
             </SelectContent>
           </Select>
+          <SavePresetDialog
+            presets={userPresets}
+            current={preset.startsWith('u:') ? preset.slice(2) : ''}
+            onSave={saveUserPreset}
+            onDelete={deleteUserPreset}
+            className="order-6 md:order-none"
+          />
           <label className="order-7 flex items-center gap-2 text-muted-foreground md:order-none">
             <Volume2 className="size-4" aria-hidden />
             <Slider
