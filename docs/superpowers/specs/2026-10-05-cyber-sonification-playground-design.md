@@ -334,3 +334,4 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 - **Dither** (output pass): ordered 4×4 Bayer dithering, from 8 levels down to 1 bit.
 
 All four are mappable and appended to LINK_KEYS. Measured at 61 fps with each one at full strength.
+**Revision 13b:** Pixel sort removed at the user's request.

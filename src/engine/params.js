@@ -127,7 +127,7 @@ export const MODULES = [
       p('Glitch', 'blocks', 'Blocks', 0), p('Glitch', 'blockSize', 'Block size', 0.7), p('Glitch', 'pixelate', 'Pixelate', 0), p('Glitch', 'rgb', 'RGB split', 0),
       p('Noise', 'static', 'Static', 0), p('Noise', 'scanlines', 'Scanlines', 0), p('Noise', 'grain', 'Grain', 0.35),
       p('Color', 'hueshift', 'Hue shift', 0), p('Color', 'posterize', 'Posterize', 0), p('Color', 'burn', 'Burn', 0),
-      p('Stylize', 'dither', 'Dither', 0), p('Stylize', 'halftone', 'Halftone', 0), p('Stylize', 'sort', 'Pixel sort', 0), p('Stylize', 'slit', 'Slit-scan', 0),
+      p('Stylize', 'dither', 'Dither', 0), p('Stylize', 'halftone', 'Halftone', 0), p('Stylize', 'slit', 'Slit-scan', 0),
       p('Feedback', 'feedback', 'Amount', 0), p('Feedback', 'zoom', 'Zoom', 0.5), p('Feedback', 'rotate', 'Rotate', 0.5), p('Feedback', 'shift', 'Drift', 0.5),
     ],
   },
@@ -195,4 +195,4 @@ export const LINK_KEYS = [
   'drone.release', 'fx.sync', 'distort.dither', 'distort.halftone', 'distort.sort', 'distort.slit',
 ]
 // Keys in LINK_KEYS that no longer exist (synth.decay, synth.sustain, synth.range,
-// drone.range, distort.tear, distort.invert) are simply ignored when a link loads.
+// drone.range, distort.tear, distort.invert, distort.sort) are simply ignored when a link loads.

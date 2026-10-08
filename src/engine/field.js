@@ -69,14 +69,12 @@ void main() {
   gl_FragColor = vec4(mix(src, prev, keep), 1.0);
 }`
 
-// Distort pass (Distortion module): pixelates, splits, pixel-sorts and recolours the frame,
+// Distort pass (Distortion module): pixelates, splits and recolours the frame,
 // then mixes in its own previous output (zoomed, rotated, shifted) so the damage can
 // leave trails. Scanlines, static and grain are added later, in the output pass.
 const DISTORT = `${COMMON}
 uniform sampler2D uFrame, uPrevDist;
-uniform float uPix, uRgb, uHueShift, uPost, uBurn, uDFb, uDZoom, uDRot, uDShift, uSort, uSlit;
-
-float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+uniform float uPix, uRgb, uHueShift, uPost, uBurn, uDFb, uDZoom, uDRot, uDShift, uSlit;
 
 vec3 hueRotate(vec3 c, float a) {
   const vec3 k = vec3(0.57735);
@@ -95,24 +93,6 @@ void main() {
   float split = uRgb * 0.025;
   vec3 col = vec3(texture2D(uFrame, uv + vec2(split, 0.0)).r, texture2D(uFrame, uv).g, texture2D(uFrame, uv - vec2(split, split * 0.4)).b);
 
-  // Pixel sort (approximation): inside a bright run, take the brightest pixel found
-  // further up the column, so bright areas melt downward into streaks.
-  if (uSort > 0.01) {
-    float thr = 1.0 - uSort * 0.75;
-    float best = luma(col);
-    if (best > thr) {
-      float len = uSort * 0.012;
-      for (int i = 1; i <= 28; i++) {
-        vec3 c = texture2D(uFrame, uv + vec2(0.0, float(i) * len)).rgb;
-        float l = luma(c);
-        if (l < thr) break;
-        if (l > best) {
-          best = l;
-          col = c;
-        }
-      }
-    }
-  }
 
   col = hueRotate(col, uHueShift * 6.2831853);
   if (uPost > 0.01) {
@@ -341,7 +321,6 @@ export function createField(canvas) {
       gl.uniform1f(du.uDZoom, v['distort.zoom'])
       gl.uniform1f(du.uDRot, v['distort.rotate'])
       gl.uniform1f(du.uDShift, v['distort.shift'])
-      gl.uniform1f(du.uSort, v['distort.sort'])
       gl.uniform1f(du.uSlit, v['distort.slit'])
       gl.drawArrays(gl.TRIANGLES, 0, 3)
 
