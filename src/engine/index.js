@@ -1,7 +1,8 @@
 import { createField } from './field.js'
 import { createSources, normalize } from './fields.js'
 import { loadDataset } from './isc.js'
-import { PARAM_BY_KEY, applyPatches } from './params.js'
+import { PARAM_BY_KEY, QUANTIZE_STEPS, applyPatches } from './params.js'
+import { step } from './music.js'
 import { createSampler } from './sampler.js'
 import { DEFAULTS } from './settings.js'
 import { createSynth, expMap } from './synth.js'
@@ -27,6 +28,15 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
   // Latest modulated value of every knob, read by the UI to animate knobs.
   const live = {}
 
+  // Quantize: snap every incoming data value to N steps before it modulates anything.
+  function quantized(src) {
+    const n = QUANTIZE_STEPS[step(live['global.quantize'] ?? settings.knobs['global.quantize'], QUANTIZE_STEPS.length)]
+    if (!n) return src
+    const out = {}
+    for (const k in src) out[k] = Math.round(src[k] * (n - 1)) / (n - 1)
+    return out
+  }
+
   const sampler = createSampler({
     emit(event) {
       recent.push(performance.now())
@@ -34,7 +44,7 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
       sources.onEvent(fields)
       hit = 1
       sources.latest.hit = 1
-      const values = applyPatches(settings.knobs, settings.patches, sources.latest, 'event')
+      const values = applyPatches(settings.knobs, settings.patches, quantized(sources.latest), 'event')
       for (const key in values) if (PARAM_BY_KEY[key].kind === 'event') live[key] = values[key]
       synth.play(values)
       for (const fn of listeners) fn(event)
@@ -52,7 +62,7 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
     sources.latest.hit = hit
     sources.smooth.hit = hit
 
-    const values = applyPatches(settings.knobs, settings.patches, sources.smooth, 'continuous')
+    const values = applyPatches(settings.knobs, settings.patches, quantized(sources.smooth), 'continuous')
     for (const key in values) if (PARAM_BY_KEY[key].kind === 'continuous') live[key] = values[key]
     field.render(values, dt)
     audioClock += dt

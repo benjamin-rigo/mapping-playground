@@ -25,8 +25,8 @@ export const ModuleCard = memo(function ModuleCard({ module, knobs, patches, sel
   const params = module.params.filter((p) => !p.header)
   const subs = [...new Set(params.map((p) => p.sub))]
   return (
-    <section className="rounded-lg border border-border bg-card px-3 py-3">
-      <div className="mb-3 flex items-center justify-between gap-2">
+    <section className="rounded-lg border border-border bg-card px-2.5 py-2.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold">{module.label}</h3>
           <span className="block truncate text-[11px] text-muted-foreground">{module.hint}</span>
@@ -55,11 +55,11 @@ export const ModuleCard = memo(function ModuleCard({ module, knobs, patches, sel
         })}
       </div>
       {children}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {subs.map((sub) => (
           <div key={sub}>
-            <div className="mb-1.5 text-[10px] font-medium tracking-wider text-muted-foreground/70 uppercase">{sub}</div>
-            <div className="grid grid-cols-4 gap-x-1 gap-y-3 sm:grid-cols-5">
+            <div className="mb-1 text-[10px] font-medium tracking-wider text-muted-foreground/70 uppercase">{sub}</div>
+            <div className="grid grid-cols-5 gap-x-0.5 gap-y-2">
               {params
                 .filter((p) => p.sub === sub)
                 .map((p) => {
@@ -73,7 +73,7 @@ export const ModuleCard = memo(function ModuleCard({ module, knobs, patches, sel
                       id={key}
                       label={label}
                       name={`${module.label} ${p.label}`}
-                      display={p.format?.(knobs[key])}
+                      display={p.format?.(knobs[key], knobs)}
                       value={knobs[key]}
                       defaultValue={p.value}
                       onChange={onKnob}

@@ -1,4 +1,5 @@
-import { DEFAULT_KNOBS, LINK_KEYS, PARAM_BY_KEY, ROOTS, SCALES, SOURCE_IDS, signal, stepValue } from './params.js'
+import { DEFAULT_KNOBS, LINK_KEYS, PARAM_BY_KEY, SOURCE_IDS, signal } from './params.js'
+import { ROOTS, SCALES, stepValue } from './music.js'
 
 export { ROOTS, SCALES }
 
@@ -31,9 +32,9 @@ const algo = (id) => (['analog', 'fold', 'fm', 'formant', 'additive', 'wavetable
 export const PRESETS = [
   preset(
     'Pastel drift',
-    { 'synth.algo': algo('modal'), 'synth.harmonics': 0.25, 'synth.timbre': 0.55, 'synth.morph': 0.6, 'synth.note': 0.15, 'synth.level': 0.55 },
+    { 'synth.algo': algo('modal'), 'synth.harmonics': 0.25, 'synth.timbre': 0.55, 'synth.morph': 0.6, 'synth.note': 0.3, 'synth.level': 0.55 },
     [
-      patch('port', 'synth.note', 0.75),
+      patch('port', 'synth.note', 0.35),
       patch('ip', 'synth.pan', 0.9),
       patch('ipVol', 'synth.harmonics', 0.4),
       patch('density', 'drone.pitch', 0.3),
@@ -46,12 +47,12 @@ export const PRESETS = [
   preset(
     'Glass rain',
     {
-      'synth.algo': algo('fm'), 'synth.harmonics': 0.7, 'synth.timbre': 0.35, 'synth.morph': 0.15, 'synth.decay': 0.5, 'synth.release': 0.6, 'synth.note': 0.3,
+      'synth.algo': algo('fm'), 'synth.harmonics': 0.7, 'synth.timbre': 0.35, 'synth.morph': 0.15, 'synth.release': 0.6, 'synth.note': 0.45,
       'drone.level': 0.25, 'drone.index': 0.12, 'fx.delay': 0.4, 'fx.feedback': 0.5, ...key('D', 'lydian'),
       'noise.hue': 0.55, 'noise.saturation': 0.7, 'noise.feedback': 0.75, 'noise.drift': 0.4, 'noise.direction': 0.75,
     },
     [
-      patch('port', 'synth.note', 0.7),
+      patch('port', 'synth.note', 0.35),
       patch('portPop', 'synth.timbre', -0.4),
       patch('ip', 'synth.pan', 0.9),
       patch('hit', 'distort.rgb', 0.35),
@@ -64,20 +65,20 @@ export const PRESETS = [
     'Breakdown',
     {
       'synth.algo': algo('drum'), 'synth.harmonics': 0.7, 'synth.timbre': 0.6, 'synth.morph': 0.7, 'synth.fold': 0.45, 'synth.punch': 0.6,
-      'synth.res': 0.3, 'synth.decay': 0.2, 'synth.release': 0.2,
-      'drone.index': 0.6, 'drone.feedback': 0.4, 'drone.cutoff': 0.65, 'drone.res': 0.45, 'drone.spread': 0.7, 'drone.level': 0.35, ...key('E', 'phrygian'),
+      'synth.res': 0.3, 'synth.release': 0.2, 'synth.note': 0.35,
+      'drone.pitch': 0.15, 'drone.level': 0.6, 'drone.reese': 0.6, 'drone.sub': 0.5, 'drone.width': 0.6, 'drone.drive': 0.45, 'drone.attack': 0.2, 'drone.release': 0.15,
+      'drone.index': 0.6, 'drone.feedback': 0.4, 'drone.cutoff': 0.65, 'drone.res': 0.45, 'drone.spread': 0.7, ...key('E', 'phrygian'),
       'fx.drive': 0.35, 'fx.crush': 0.2, 'fx.delay': 0.3, 'fx.time': 0.15, 'fx.feedback': 0.55, 'fx.reverb': 0.2,
       'noise.hue': 0.98, 'noise.saturation': 0.8, 'noise.contrast': 0.7, 'noise.blur': 0.3, 'noise.turbulence': 0.7, 'noise.feedback': 0.65,
-      'distort.grain': 0.6, 'distort.scanlines': 0.3, 'distort.blocks': 0.2, 'distort.tear': 0.12, 'distort.rgb': 0.3, 'distort.static': 0.08, 'distort.feedback': 0.35, 'distort.shift': 0.75,
+      'distort.grain': 0.6, 'distort.scanlines': 0.3, 'distort.blocks': 0.2, 'distort.rgb': 0.3, 'distort.static': 0.08, 'distort.feedback': 0.35, 'distort.shift': 0.75,
     },
     [
-      patch('ip', 'synth.note', 0.9),
+      patch('ip', 'synth.note', 0.5),
       patch('port', 'synth.algo', 0.5),
       patch('ipVol', 'synth.fold', 0.4),
       patch('hit', 'fx.crush', 0.5),
       patch('density', 'drone.pitch', 0.5),
       patch('hit', 'distort.blocks', 0.6),
-      patch('hit', 'distort.tear', 0.5),
       patch('hit', 'distort.static', 0.4),
       patch('density', 'distort.pixelate', 0.4),
       patch('threat', 'distort.burn', 0.4),
@@ -99,18 +100,14 @@ export const PRESETS = [
       'synth.res': 0.86,
       'synth.fenv': 0,
       'synth.attack': 0.83,
-      'synth.decay': 0.84,
-      'synth.sustain': 0.05,
       'synth.release': 0.94,
-      'synth.note': 0.19,
-      'synth.range': 0.5,
+      'synth.note': 0.43,
       'synth.level': 0.22,
       'synth.pan': 0.49,
       'synth.chance': 0.13,
       'drone.root': 0.14,
       'drone.scale': 0.32,
-      'drone.pitch': 0,
-      'drone.range': 0.17,
+      'drone.pitch': 0.52,
       'drone.glide': 0,
       'drone.voicing': 0.47,
       'drone.ratio': 0.23,
@@ -146,14 +143,12 @@ export const PRESETS = [
       'noise.drift': 0.4,
       'distort.blocks': 0,
       'distort.blockSize': 1,
-      'distort.tear': 0,
       'distort.pixelate': 0.49,
       'distort.rgb': 0.02,
       'distort.static': 0,
       'distort.scanlines': 0.37,
       'distort.grain': 0.35,
       'distort.hueshift': 0,
-      'distort.invert': 0,
       'distort.posterize': 0,
       'distort.burn': 0.34,
       'distort.feedback': 0.69,

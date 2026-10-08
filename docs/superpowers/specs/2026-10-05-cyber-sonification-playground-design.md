@@ -303,3 +303,26 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
   - The matrix's corner controls move above the table in narrow containers.
   - Touch gestures: knobs and matrix cells drag horizontally (touch-action: pan-y), so vertical swipes scroll. Selection happens on tap or drag, not on every touch, and a browser-cancelled gesture counts as a scroll, not a tap.
   - Mouse behaviour is unchanged (vertical drag with pointer lock).
+
+## Revision 13 (2026-10-08): feedback batch
+
+- **Visual:**
+  - Tear and Invert are removed (Invert did what Paper does).
+  - Blocks use random sizes: each coarse region picks half, normal or double of Block size.
+  - Static and grain use a per-frame random offset, so they no longer repeat visibly.
+- **Synth:**
+  - The ADSR is replaced by an **AR** envelope.
+  - **Arp** section: Mode (Off, Up, Down, Up-down, Random), Rate (tempo divisions), Steps (1–8) and Octaves (1–3). An attack plays a run over the root, third and fifth of the note.
+  - **Note** spans C1–C7 in the key and shows note names; the Range knob is gone.
+- **Drone:**
+  - **Pitch** spans C1–C5 with note names, and the Range knob is gone. FM Spread is renamed Detune.
+  - New **Bass** section: Sub (a sine an octave under the root), Reese (two saws on the root, detuned by Width), Drive (tanh shaper before the filter).
+  - New **AR envelope**: a chord change fades out over Release, then swells in over Attack.
+- **Timing:**
+  - A global **Tempo** (60–180 BPM).
+  - Delay **Sync** (Free / Tempo), which steps Time through note divisions (1/32 … 1/1, including dotted and triplet).
+  - Times show ms or s.
+- **Quantize** (Off, 2–24 steps) snaps every incoming data value before it modulates anything. Response, Quantize and Tempo sit in the matrix toolbar.
+- **Naming:** consistent labels: Cutoff, Resonance, Env depth, Attack, Release, Amount, Drift, Hue range.
+- **Layout:** compact cards with 36 px knobs, five per row, and tighter spacing.
+- **Links:** removed knobs stay in LINK_KEYS and are ignored when a link loads; new knobs are appended.

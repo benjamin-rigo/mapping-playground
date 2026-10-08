@@ -128,7 +128,6 @@ export default function App() {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  const responseDepth = settings.patches.filter((x) => x.target === 'global.response').reduce((sum, x) => sum + Math.abs(x.amount), 0)
   const matrix = (className) => (
     <ModMatrix
       settings={settings}
@@ -136,21 +135,26 @@ export default function App() {
       onSelect={select}
       onPatches={setPatches}
       className={className}
-      corner={
-        <RotaryKnob
-          id="global.response"
-          label="Response"
-          name="Response time"
-          value={settings.knobs['global.response']}
-          defaultValue={0.25}
-          display={PARAM_BY_KEY['global.response'].format(settings.knobs['global.response'])}
-          onChange={setKnob}
-          onSelect={select}
-          selected={selected === 'global.response'}
-          modNeg={-responseDepth}
-          modPos={responseDepth}
-        />
-      }
+      corner={['global.response', 'global.quantize', 'global.bpm'].map((key) => {
+        const p = PARAM_BY_KEY[key]
+        const depth = settings.patches.filter((x) => x.target === key).reduce((sum, x) => sum + Math.abs(x.amount), 0)
+        return (
+          <RotaryKnob
+            key={key}
+            id={key}
+            label={p.label}
+            name={p.label}
+            value={settings.knobs[key]}
+            defaultValue={p.value}
+            display={p.format(settings.knobs[key], settings.knobs)}
+            onChange={setKnob}
+            onSelect={select}
+            selected={selected === key}
+            modNeg={-depth}
+            modPos={depth}
+          />
+        )
+      })}
     />
   )
 

@@ -3,8 +3,8 @@ import { EngineContext } from '@/components/Meter'
 import { useDrag } from '@/components/useDrag'
 import { cn } from '@/lib/utils'
 
-const SIZE = 44
-const R = 17
+const SIZE = 36
+const R = 14
 const START = -135
 const SWEEP = 270
 const clamp01 = (v) => Math.max(0, Math.min(1, v))
@@ -84,7 +84,7 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
   const hi = clamp01(value + modPos)
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex min-w-0 flex-col items-center gap-0.5">
       <div
         role="slider"
         tabIndex={0}
@@ -116,11 +116,11 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
           )}
           {modulated && <path d={arc(lo, hi)} fill="none" stroke="currentColor" strokeWidth="5" className="text-white/25" />}
           {modulated && <path ref={liveArc} fill="none" stroke="currentColor" strokeWidth="5" className="text-white" />}
-          {modulated && <circle ref={liveDot} r="3.5" className="fill-white" style={{ opacity: 0 }} />}
-          <circle cx={point(value, 9)[0]} cy={point(value, 9)[1]} r="2" className="fill-foreground" />
+          {modulated && <circle ref={liveDot} r="3" className="fill-white" style={{ opacity: 0 }} />}
+          <circle cx={point(value, 7)[0]} cy={point(value, 7)[1]} r="1.8" className="fill-foreground" />
         </svg>
       </div>
-      <span className={cn('max-w-16 truncate text-[11px] leading-tight', selected ? 'font-medium text-white' : 'text-muted-foreground')}>
+      <span className={cn('max-w-full truncate text-[10px] leading-tight', selected ? 'font-medium text-white' : 'text-muted-foreground')}>
         {label}
       </span>
       <span className="font-mono text-[10px] leading-none tabular-nums text-muted-foreground/80">{display ?? value.toFixed(2)}</span>

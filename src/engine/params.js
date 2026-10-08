@@ -4,6 +4,10 @@
 // patchable: false keeps a knob out of the modulation matrix; header: true shows it
 // as a volume slider in the card header instead of a knob.
 
+import { DIVISIONS, DRONE_RANGE, ROOTS, SCALES, SYNTH_RANGE, bpmOf, expMap, keyOf, noteAt, noteName, secondsLabel, step, stepValue } from './music.js'
+
+export { ROOTS, SCALES, step, stepValue }
+
 // Defaults are kept to two decimals, the precision share links store.
 const p = (sub, id, label, value, extra = {}) => ({ sub, id, label, value: Math.round(value * 100) / 100, ...extra })
 
@@ -22,11 +26,8 @@ export const ALGORITHMS = [
   { id: 'noise', name: 'Noise', labels: ['LP · BP · HP', 'Cutoff', 'Resonance'] },
   { id: 'dust', name: 'Dust', labels: ['Scatter', 'Density', 'Resonance'] },
 ]
-export const step = (v, n) => Math.min(n - 1, Math.floor(v * n))
 export const algoIndex = (v) => step(v, ALGORITHMS.length)
 
-export const ROOTS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-export const SCALES = ['minor', 'major', 'pentatonic', 'dorian', 'phrygian', 'lydian', 'whole tone', 'chromatic']
 export const FILTER_TYPES = [
   { type: 'lowpass', label: 'LP' },
   { type: 'bandpass', label: 'BP' },
@@ -34,41 +35,67 @@ export const FILTER_TYPES = [
 ]
 // Modulator/carrier ratios the Drone FM Ratio knob steps through.
 export const DRONE_RATIOS = [0.5, 1, 1.5, 2, 3, 4, 5, 7]
-// Knob value at the centre of step i of n, for presets and pickers.
-export const stepValue = (i, n) => (i + 0.5) / n
+export const ARP_MODES = ['Off', 'Up', 'Down', 'Up-down', 'Random']
+// Arp rates: a subset of the note divisions.
+export const ARP_RATES = DIVISIONS.filter(([name]) => ['1/32', '1/16T', '1/16', '1/8T', '1/8', '1/4T', '1/4'].includes(name))
+export const QUANTIZE_STEPS = [0, 2, 3, 4, 6, 8, 12, 16, 24]
 
-const ms = (v, lo, hi) => `${Math.round(lo * (hi / lo) ** v)}ms`
+// Display helpers; they get the knob value and all knobs (for key, tempo and sync).
+const pct = (v) => `${Math.round(v * 100)}%`
+const time = (lo, hi) => (v) => secondsLabel(expMap(v, lo, hi))
+const synthNote = (v, k) => {
+  const { root, scale } = keyOf(k)
+  return noteName(noteAt(v, root, scale, ...SYNTH_RANGE))
+}
+const dronePitch = (v, k) => {
+  const { root, scale } = keyOf(k)
+  return noteName(noteAt(v, root, scale, ...DRONE_RANGE))
+}
+const delayTime = (v, k) =>
+  step(k['fx.sync'], 2) ? DIVISIONS[step(v, DIVISIONS.length)][0] : secondsLabel(expMap(v, 0.05, 1.2))
 
 export const MODULES = [
   {
     // Shown in the matrix toolbar rather than as a card.
     id: 'global', group: 'matrix', label: 'Matrix', kind: 'continuous',
-    params: [p('Reaction', 'response', 'Response', 0.25, { format: (v) => ms(v, 10, 3000) })],
+    params: [
+      p('Reaction', 'response', 'Response', 0.25, { format: time(0.01, 3) }),
+      p('Reaction', 'quantize', 'Quantize', 0, { format: (v) => (QUANTIZE_STEPS[step(v, QUANTIZE_STEPS.length)] ? `${QUANTIZE_STEPS[step(v, QUANTIZE_STEPS.length)]} steps` : 'Off') }),
+      p('Reaction', 'bpm', 'Tempo', 0.5, { format: (v) => `${bpmOf(v)} BPM` }),
+    ],
   },
   {
     id: 'synth', group: 'sound', label: 'Synth', kind: 'event',
-    hint: 'one note per attack',
+    hint: 'notes fired by attacks',
     params: [
       p('Engine', 'algo', 'Algorithm', 0.05, { format: (v) => ALGORITHMS[algoIndex(v)].name }),
       p('Engine', 'harmonics', 'Harmonics', 0.4, { macro: 0 }), p('Engine', 'timbre', 'Timbre', 0.5, { macro: 1 }), p('Engine', 'morph', 'Morph', 0.4, { macro: 2 }),
-      p('Shape', 'fold', 'Fold', 0), p('Shape', 'punch', 'Punch', 0),
-      p('Filter', 'cutoff', 'Cutoff', 0.7), p('Filter', 'res', 'Res', 0.15), p('Filter', 'fenv', 'Env amt', 0.3),
-      p('Envelope', 'attack', 'Attack', 0.03), p('Envelope', 'decay', 'Decay', 0.35), p('Envelope', 'sustain', 'Sustain', 0.05), p('Envelope', 'release', 'Release', 0.5),
-      p('Voice', 'note', 'Note', 0.5), p('Voice', 'range', 'Range', 0.5), p('Voice', 'level', 'Level', 0.7, { header: true }), p('Voice', 'pan', 'Pan', 0.5), p('Voice', 'chance', 'Chance', 0.85),
+      p('Engine', 'fold', 'Fold', 0), p('Engine', 'punch', 'Punch', 0),
+      p('Filter', 'cutoff', 'Cutoff', 0.7), p('Filter', 'res', 'Resonance', 0.15), p('Filter', 'fenv', 'Env depth', 0.3),
+      p('Envelope', 'attack', 'Attack', 0.03, { format: time(0.001, 2) }), p('Envelope', 'release', 'Release', 0.5, { format: time(0.02, 5) }),
+      p('Arp', 'arpMode', 'Mode', 0, { format: (v) => ARP_MODES[step(v, ARP_MODES.length)] }),
+      p('Arp', 'arpRate', 'Rate', stepValue(2, ARP_RATES.length), { format: (v) => ARP_RATES[step(v, ARP_RATES.length)][0] }),
+      p('Arp', 'arpSteps', 'Steps', stepValue(3, 8), { format: (v) => `${step(v, 8) + 1}` }),
+      p('Arp', 'arpOctaves', 'Octaves', 0, { format: (v) => `${step(v, 3) + 1}` }),
+      p('Voice', 'note', 'Note', 0.4, { format: synthNote }), p('Voice', 'level', 'Level', 0.7, { header: true }),
+      p('Voice', 'pan', 'Pan', 0.5), p('Voice', 'chance', 'Chance', 0.85, { format: pct }),
     ],
   },
   {
     id: 'drone', group: 'sound', label: 'Drone', kind: 'continuous',
-    hint: 'a held FM chord; its key is shared with the synth',
+    hint: 'a held chord; its key is shared with the synth',
     params: [
       p('Key', 'root', 'Root', stepValue(9, 12), { format: (v) => ROOTS[step(v, 12)] }),
       p('Key', 'scale', 'Scale', stepValue(0, 8), { format: (v) => SCALES[step(v, 8)] }),
-      p('Pitch', 'pitch', 'Pitch', 0.4), p('Pitch', 'range', 'Range', 0.3), p('Pitch', 'glide', 'Glide', 0.5), p('Pitch', 'voicing', 'Voicing', 0.6),
+      p('Key', 'pitch', 'Pitch', 0.5, { format: dronePitch }), p('Key', 'glide', 'Glide', 0.5, { format: time(0.01, 6) }),
+      p('Key', 'voicing', 'Voicing', 0.6),
       p('FM', 'ratio', 'Ratio', stepValue(1, DRONE_RATIOS.length), { format: (v) => `×${DRONE_RATIOS[step(v, DRONE_RATIOS.length)]}` }),
-      p('FM', 'index', 'Index', 0.25), p('FM', 'feedback', 'Feedback', 0), p('FM', 'spread', 'Spread', 0.3),
-      p('Filter', 'cutoff', 'Cutoff', 0.6), p('Filter', 'res', 'Res', 0.15),
+      p('FM', 'index', 'Index', 0.25), p('FM', 'feedback', 'Feedback', 0), p('FM', 'spread', 'Detune', 0.3),
+      p('Bass', 'sub', 'Sub', 0), p('Bass', 'reese', 'Reese', 0), p('Bass', 'width', 'Width', 0.4), p('Bass', 'drive', 'Drive', 0),
+      p('Filter', 'cutoff', 'Cutoff', 0.6), p('Filter', 'res', 'Resonance', 0.15),
       p('Filter', 'type', 'Type', 0, { format: (v) => FILTER_TYPES[step(v, 3)].label }),
-      p('Movement', 'motion', 'Motion', 0.3), p('Movement', 'level', 'Level', 0.45, { header: true }),
+      p('Envelope', 'attack', 'Attack', 0.4, { format: time(0.05, 8) }), p('Envelope', 'release', 'Release', 0.3, { format: time(0.05, 8) }),
+      p('Envelope', 'motion', 'Motion', 0.3), p('Envelope', 'level', 'Level', 0.45, { header: true }),
     ],
   },
   {
@@ -76,15 +103,17 @@ export const MODULES = [
     hint: 'shared by synth and drone',
     params: [
       p('Dirt', 'drive', 'Drive', 0.05), p('Dirt', 'crush', 'Crush', 0),
-      p('Space', 'delay', 'Delay', 0.2), p('Space', 'time', 'Time', 0.4), p('Space', 'feedback', 'Feedback', 0.35),
-      p('Space', 'reverb', 'Reverb', 0.45), p('Space', 'size', 'Size', 0.6, { patchable: false }),
+      p('Delay', 'delay', 'Amount', 0.2), p('Delay', 'time', 'Time', 0.4, { format: delayTime }),
+      p('Delay', 'sync', 'Sync', 0, { format: (v) => (step(v, 2) ? 'Tempo' : 'Free'), patchable: false }),
+      p('Delay', 'feedback', 'Feedback', 0.35),
+      p('Reverb', 'reverb', 'Amount', 0.45), p('Reverb', 'size', 'Size', 0.6, { patchable: false }),
     ],
   },
   {
     id: 'noise', group: 'visual', label: 'Noise', kind: 'continuous',
     hint: 'soft blurred noise with feedback',
     params: [
-      p('Color', 'hue', 'Hue', 0.6), p('Color', 'spread', 'Hue spread', 0.08), p('Color', 'saturation', 'Saturation', 0.55),
+      p('Color', 'hue', 'Hue', 0.6), p('Color', 'spread', 'Hue range', 0.08), p('Color', 'saturation', 'Saturation', 0.55),
       p('Color', 'paper', 'Paper', 0.93), p('Color', 'contrast', 'Contrast', 0.4),
       p('Shape', 'scale', 'Scale', 0.35), p('Shape', 'detail', 'Detail', 0.6), p('Shape', 'blur', 'Blur', 0.7), p('Shape', 'turbulence', 'Turbulence', 0.4), p('Shape', 'seed', 'Seed', 0),
       p('Motion', 'flow', 'Speed', 0.25), p('Motion', 'direction', 'Direction', 0.25),
@@ -95,10 +124,10 @@ export const MODULES = [
     id: 'distort', group: 'visual', label: 'Distortion', kind: 'continuous',
     hint: 'breaks the picture apart',
     params: [
-      p('Glitch', 'blocks', 'Blocks', 0), p('Glitch', 'blockSize', 'Block size', 0.7), p('Glitch', 'tear', 'Tear', 0), p('Glitch', 'pixelate', 'Pixelate', 0), p('Glitch', 'rgb', 'RGB split', 0),
+      p('Glitch', 'blocks', 'Blocks', 0), p('Glitch', 'blockSize', 'Block size', 0.7), p('Glitch', 'pixelate', 'Pixelate', 0), p('Glitch', 'rgb', 'RGB split', 0),
       p('Noise', 'static', 'Static', 0), p('Noise', 'scanlines', 'Scanlines', 0), p('Noise', 'grain', 'Grain', 0.35),
-      p('Color', 'hueshift', 'Hue shift', 0), p('Color', 'invert', 'Invert', 0), p('Color', 'posterize', 'Posterize', 0), p('Color', 'burn', 'Burn', 0),
-      p('Feedback', 'feedback', 'Amount', 0), p('Feedback', 'zoom', 'Zoom', 0.5), p('Feedback', 'rotate', 'Rotate', 0.5), p('Feedback', 'shift', 'Shift', 0.5),
+      p('Color', 'hueshift', 'Hue shift', 0), p('Color', 'posterize', 'Posterize', 0), p('Color', 'burn', 'Burn', 0),
+      p('Feedback', 'feedback', 'Amount', 0), p('Feedback', 'zoom', 'Zoom', 0.5), p('Feedback', 'rotate', 'Rotate', 0.5), p('Feedback', 'shift', 'Drift', 0.5),
     ],
   },
 ]
@@ -160,5 +189,9 @@ export const LINK_KEYS = [
   'distort.rgb', 'distort.static', 'distort.scanlines', 'distort.grain', 'distort.hueshift', 'distort.invert',
   'distort.posterize', 'distort.burn', 'distort.feedback', 'distort.zoom', 'distort.rotate', 'distort.shift',
   // added after 1.0.1
-  'noise.seed',
+  'noise.seed', 'global.quantize', 'global.bpm', 'synth.arpMode', 'synth.arpRate', 'synth.arpSteps',
+  'synth.arpOctaves', 'drone.sub', 'drone.reese', 'drone.width', 'drone.drive', 'drone.attack',
+  'drone.release', 'fx.sync',
 ]
+// Keys in LINK_KEYS that no longer exist (synth.decay, synth.sustain, synth.range,
+// drone.range, distort.tear, distort.invert) are simply ignored when a link loads.

@@ -1,46 +1,11 @@
 import * as Tone from 'tone'
-import { ALGORITHMS, DRONE_RATIOS, FILTER_TYPES, ROOTS, SCALES, algoIndex, step } from './params.js'
+import { ALGORITHMS, ARP_MODES, ARP_RATES, DRONE_RATIOS, FILTER_TYPES, algoIndex } from './params.js'
+import { DIVISIONS, ROOTS, SCALES, SYNTH_RANGE, bpmOf, droneChord, expMap, mtof, noteAt, scaleNotes, step } from './music.js'
 
-export const SCALE_STEPS = {
-  minor: [0, 2, 3, 5, 7, 8, 10],
-  major: [0, 2, 4, 5, 7, 9, 11],
-  pentatonic: [0, 3, 5, 7, 10],
-  dorian: [0, 2, 3, 5, 7, 9, 10],
-  phrygian: [0, 1, 3, 5, 7, 8, 10],
-  lydian: [0, 2, 4, 6, 7, 9, 11],
-  'whole tone': [0, 2, 4, 6, 8, 10],
-  chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-}
+export { expMap }
+
 const MAX_VOICES = 24
 const PARTIALS = 24
-
-export const expMap = (v, lo, hi) => lo * (hi / lo) ** v
-const mtof = (m) => 440 * 2 ** ((m - 69) / 12)
-
-// Every note of the scale between MIDI 12 and 108.
-export function scaleNotes(root, scale) {
-  const out = []
-  for (let o = 0; o < 9; o++) for (const s of SCALE_STEPS[scale]) out.push(12 + ROOTS.indexOf(root) + o * 12 + s)
-  return out
-}
-
-// note 0..1 picks a scale note inside a span of 1..4 octaves (range) around base.
-export function noteFor(note, range, root, scale, base = 36) {
-  const octaves = 1 + Math.round(range * 3)
-  const low = base + ROOTS.indexOf(root) + 12 * Math.floor((4 - octaves) / 2)
-  const inSpan = scaleNotes(root, scale).filter((m) => m >= low && m <= low + octaves * 12)
-  return inSpan[Math.round(note * (inSpan.length - 1))]
-}
-
-// Drone chord: root plus scale-wise third, fifth and octave above it.
-export function droneChord(pitch, range, root, scale) {
-  const all = scaleNotes(root, scale)
-  const first = noteFor(pitch, range, root, scale, 36)
-  const i = all.indexOf(first)
-  const steps = SCALE_STEPS[scale].length
-  const offsets = scale === 'chromatic' ? [0, 7, 12, 19] : [0, 2, 4, steps]
-  return offsets.map((o) => all[Math.min(all.length - 1, i + o)])
-}
 
 // Harmonic spectra the Shape/Timbre knobs morph through, like a small wavetable.
 const TABLES = [
@@ -78,13 +43,15 @@ export function createSynth() {
   let reverbSize = -1
   let droneKey = ''
   let droneFreqs = [110, 110, 110, 110]
+  let droneDrive = -1
+  let bpm = 120
   let master = 0.8
   function build() {
     raw = Tone.getContext().rawContext
     const master = new Tone.Volume(-4).toDestination()
     const limiter = new Tone.Limiter(-1).connect(master)
     const reverb = new Tone.Reverb({ decay: 4, wet: 0.4 }).connect(limiter)
-    const delay = new Tone.FeedbackDelay({ delayTime: 0.3, feedback: 0.35, wet: 0.2 }).connect(reverb)
+    const delay = new Tone.FeedbackDelay({ delayTime: 0.3, maxDelay: 4, feedback: 0.35, wet: 0.2 }).connect(reverb)
     const crusher = new Tone.BitCrusher({ bits: 16, wet: 0 }).connect(delay)
     const drive = new Tone.Distortion({ distortion: 0.3, wet: 0 }).connect(crusher)
     const input = new Tone.Gain(1).connect(drive)
@@ -96,14 +63,21 @@ export function createSynth() {
     // drone: 4 chord tones, each an FM voice (2 detuned sine carriers, a modulator,
     // and a third operator feeding the modulator) -> lowpass (LFO) -> tremolo -> level.
     // A slow LFO also breathes every voice's FM index.
+    // Chain: FM chord + reese + sub -> drive -> filter -> tremolo -> AR envelope -> level.
     const droneOut = raw.createGain()
     droneOut.gain.value = 0
     Tone.connect(droneOut, input)
+    const env = raw.createGain()
+    env.gain.value = 0
+    env.connect(droneOut)
     const trem = raw.createGain()
-    trem.connect(droneOut)
+    trem.connect(env)
     const dFilter = raw.createBiquadFilter()
     dFilter.Q.value = 1.2
     dFilter.connect(trem)
+    const dDrive = raw.createWaveShaper()
+    dDrive.oversample = '2x'
+    dDrive.connect(dFilter)
     const sine = (freq) => {
       const o = raw.createOscillator()
       o.frequency.value = freq
@@ -124,7 +98,7 @@ export function createSynth() {
     const idxLfo = sine(0.11)
     const tones = [0, 1, 2, 3].map(() => {
       const level = g(0)
-      level.connect(dFilter)
+      level.connect(dDrive)
       const pair = [-1, 1].map((side) => {
         const o = sine(110)
         o.connect(level)
@@ -142,7 +116,22 @@ export function createSynth() {
       return { g: level, pair, mod, depth, breathe, op3, fb }
     })
 
-    n = { master, reverb, delay, crusher, drive, input, noise, droneOut, trem, dFilter, lfo, lfoDepth, amp, ampDepth, idxLfo, tones }
+    // Bass layer: a reese (two detuned saws that beat against each other) and a sine sub,
+    // both on the chord's root.
+    const reeseLevel = g(0)
+    reeseLevel.connect(dDrive)
+    const reese = [-1, 1].map((side) => {
+      const o = sine(55)
+      o.type = 'sawtooth'
+      o.connect(reeseLevel)
+      return { o, side }
+    })
+    const subLevel = g(0)
+    subLevel.connect(dDrive)
+    const sub = sine(55)
+    sub.connect(subLevel)
+
+    n = { master, reverb, delay, crusher, drive, input, noise, droneOut, env, trem, dFilter, dDrive, lfo, lfoDepth, amp, ampDepth, idxLfo, tones, reese, reeseLevel, sub, subLevel }
   }
 
   const now = () => raw.currentTime
@@ -205,18 +194,15 @@ export function createSynth() {
   ]
   const BASIC = ['sine', 'triangle', 'sawtooth', 'square']
 
-  function voice(v, t) {
+  function voice(v, t, midi) {
     const ctx = raw
-    const midi = noteFor(v['synth.note'], v['synth.range'], root, scale, 48)
     const f = mtof(midi)
     const H = v['synth.harmonics']
     const T = v['synth.timbre']
     const M = v['synth.morph']
     const a = expMap(v['synth.attack'], 0.001, 2)
-    const d = expMap(v['synth.decay'], 0.02, 3)
     const r = expMap(v['synth.release'], 0.02, 5)
-    const gateEnd = t + a + d
-    const end = gateEnd + r * 1.5 + 0.05
+    const end = t + a + r * 1.5 + 0.05
     const level = v['synth.level'] ** 2
     const algo = ALGORITHMS[algoIndex(v['synth.algo'])].id
 
@@ -262,8 +248,7 @@ export function createSynth() {
     const out = gain(0)
     out.gain.setValueAtTime(0, t)
     out.gain.linearRampToValueAtTime(level, t + a)
-    out.gain.setTargetAtTime(level * v['synth.sustain'], t + a, d / 3)
-    out.gain.setTargetAtTime(0, gateEnd, r / 4)
+    out.gain.setTargetAtTime(0, t + a, r / 4)
     const pan = ctx.createStereoPanner()
     pan.pan.value = v['synth.pan'] * 2 - 1
     out.connect(pan)
@@ -274,7 +259,7 @@ export function createSynth() {
     filter.Q.value = expMap(v['synth.res'], 0.5, 18)
     filter.frequency.setValueAtTime(cutoff, t)
     filter.frequency.linearRampToValueAtTime(Math.min(18000, cutoff * 2 ** (v['synth.fenv'] * 6)), t + a + 0.005)
-    filter.frequency.setTargetAtTime(cutoff, t + a + 0.005, d / 3)
+    filter.frequency.setTargetAtTime(cutoff, t + a + 0.005, r / 3)
     filter.connect(out)
 
     const mix = gain(1)
@@ -305,7 +290,7 @@ export function createSynth() {
         const mod = osc('sine', f * ratio, 1, null)
         const depth = gain(0)
         depth.gain.setValueAtTime(f * T * 10, t)
-        depth.gain.setTargetAtTime(f * T * 3, t, d / 2)
+        depth.gain.setTargetAtTime(f * T * 3, t, r / 2)
         mod.connect(depth).connect(car.frequency)
         if (M > 0.01) osc('sine', f * ratio * 1.5, f * ratio * M * 4, null).connect(gain(f * ratio * M * 4)).connect(mod.frequency)
         break
@@ -355,7 +340,7 @@ export function createSynth() {
         for (let i = 0; i < 6; i++) {
           const ratio = (i + 1) ** (0.5 + H)
           if (f * ratio > 18000) continue
-          partial(wave, f * ratio, Math.exp(-i * (1 - T) * 1.2) * 0.3, d * (1.2 - i * 0.12), mix)
+          partial(wave, f * ratio, Math.exp(-i * (1 - T) * 1.2) * 0.3, r * (1.2 - i * 0.12), mix)
         }
         break
       }
@@ -404,6 +389,10 @@ export function createSynth() {
       if (!n) return
       ready = false
       glideTo(n.droneOut.gain, 0, 0.3)
+      // swell in again on the next start
+      droneKey = ''
+      n.env.gain.cancelScheduledValues(now())
+      n.env.gain.setTargetAtTime(0, now(), 0.1)
     },
     setMaster(m) {
       master = m
@@ -416,13 +405,36 @@ export function createSynth() {
 
       root = ROOTS[step(v['drone.root'], ROOTS.length)]
       scale = SCALES[step(v['drone.scale'], SCALES.length)]
-      const chord = droneChord(v['drone.pitch'], v['drone.range'], root, scale)
+      bpm = bpmOf(v['global.bpm'])
+      const chord = droneChord(v['drone.pitch'], root, scale)
       const key = chord.join()
       const glide = expMap(v['drone.glide'], 0.01, 6) / 3
+      const attack = expMap(v['drone.attack'], 0.05, 8)
+      const release = expMap(v['drone.release'], 0.05, 8)
       if (key !== droneKey) {
+        // AR: every new chord fades the old one out over Release, then swells in over Attack.
+        const first = droneKey === ''
         droneKey = key
         droneFreqs = chord.map(mtof)
-        n.tones.forEach((t, i) => t.pair.forEach(({ o }) => glideTo(o.frequency, droneFreqs[i], glide)))
+        const t0 = now()
+        const swell = first ? t0 : t0 + release
+        n.env.gain.cancelScheduledValues(t0)
+        n.env.gain.setValueAtTime(n.env.gain.value, t0)
+        if (!first) n.env.gain.setTargetAtTime(0, t0, release / 4)
+        n.env.gain.setTargetAtTime(1, swell, attack / 4)
+        n.tones.forEach((t, i) => t.pair.forEach(({ o }) => o.frequency.setTargetAtTime(droneFreqs[i], first ? t0 : t0 + release * 0.5, glide)))
+        for (const { o } of n.reese) o.frequency.setTargetAtTime(droneFreqs[0], first ? t0 : t0 + release * 0.5, glide)
+        n.sub.frequency.setTargetAtTime(droneFreqs[0] / 2, first ? t0 : t0 + release * 0.5, glide)
+      }
+      const width = v['drone.width'] * 35
+      for (const { o, side } of n.reese) glideTo(o.detune, side * width, tc)
+      glideTo(n.reeseLevel.gain, v['drone.reese'] ** 2 * 1.2, tc)
+      glideTo(n.subLevel.gain, v['drone.sub'] ** 2 * 2.5, tc)
+      const driveKey = Math.round(v['drone.drive'] * 50)
+      if (driveKey !== droneDrive) {
+        droneDrive = driveKey
+        const k = 1 + v['drone.drive'] * 30
+        n.dDrive.curve = Float32Array.from({ length: 2048 }, (_, i) => Math.tanh(k * ((i / 2047) * 2 - 1)) / Math.tanh(k))
       }
       const ratio = DRONE_RATIOS[step(v['drone.ratio'], DRONE_RATIOS.length)]
       const index = v['drone.index'] ** 2 * 8
@@ -457,7 +469,8 @@ export function createSynth() {
       n.crusher.bits.value = 16 - v['fx.crush'] * 13
       n.crusher.wet.rampTo(v['fx.crush'] > 0.02 ? 1 : 0, tc)
       n.delay.wet.rampTo(v['fx.delay'] * 0.7, tc)
-      n.delay.delayTime.rampTo(expMap(v['fx.time'], 0.05, 1.2), 0.1)
+      const delaySeconds = step(v['fx.sync'], 2) ? (DIVISIONS[step(v['fx.time'], DIVISIONS.length)][1] * 60) / bpm : expMap(v['fx.time'], 0.05, 1.2)
+      n.delay.delayTime.rampTo(Math.min(4, delaySeconds), 0.1)
       n.delay.feedback.rampTo(v['fx.feedback'] * 0.9, tc)
       n.reverb.wet.rampTo(v['fx.reverb'], tc)
       if (Math.abs(v['fx.size'] - reverbSize) > 0.02) {
@@ -465,10 +478,26 @@ export function createSynth() {
         n.reverb.decay = expMap(reverbSize, 0.5, 10)
       }
     },
-    // one attack with the event knobs already modulated
+    // One attack with the event knobs already modulated. With the arp on, it plays a
+    // short run over the chord (root, third, fifth) of the note, in time with the tempo.
     play(v) {
       if (!ready || active >= MAX_VOICES || Math.random() > v['synth.chance']) return
-      voice(v, raw.currentTime + 0.02)
+      const t = raw.currentTime + 0.02
+      const note = noteAt(v['synth.note'], root, scale, ...SYNTH_RANGE)
+      const mode = ARP_MODES[step(v['synth.arpMode'], ARP_MODES.length)]
+      if (mode === 'Off') return voice(v, t, note)
+
+      const all = scaleNotes(root, scale)
+      const i = all.indexOf(note)
+      const tones = []
+      for (let o = 0; o <= step(v['synth.arpOctaves'], 3); o++) for (const d of [0, 2, 4]) if (all[i + d] != null) tones.push(all[i + d] + o * 12)
+      const order = mode === 'Down' ? [...tones].reverse() : mode === 'Up-down' ? [...tones, ...tones.slice(1, -1).reverse()] : tones
+      const steps = step(v['synth.arpSteps'], 8) + 1
+      const stepTime = (ARP_RATES[step(v['synth.arpRate'], ARP_RATES.length)][1] * 60) / bpm
+      for (let k = 0; k < steps && active < MAX_VOICES; k++) {
+        const m = mode === 'Random' ? tones[Math.floor(Math.random() * tones.length)] : order[k % order.length]
+        if (m != null) voice(v, t + k * stepTime, m)
+      }
     },
   }
 }

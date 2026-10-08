@@ -97,8 +97,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className, 
 
   return (
     <section ref={box} className={cn('@container overflow-auto', className)} aria-label="Modulation matrix">
-      {/* narrow: the corner controls sit above the table instead of squeezing the first column */}
-      <div className="flex items-center gap-3 pt-2 @[36rem]:hidden">
+      <div className="flex items-center gap-4 pt-2">
         <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Matrix</span>
         {corner}
       </div>
@@ -106,10 +105,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className, 
         <thead className="sticky top-0 z-10 bg-background">
           <tr>
             <th className="w-[22%] py-2 pl-1 text-left font-normal @[36rem]:w-48">
-              <div className="hidden items-center gap-3 @[36rem]:flex">
-                <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Matrix</span>
-                {corner}
-              </div>
+              <span className="sr-only">Target</span>
             </th>
             {SOURCES.map((s) => (
               <th key={s.id} className="py-2 font-normal" title={`${s.label}: ${s.hint}`}>

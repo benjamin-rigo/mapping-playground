@@ -56,7 +56,10 @@ void main() {
   d.x /= aspect;
   vec2 fuv = 0.5 + d - uDir * uDrift * 0.006;
 
-  float cells = mix(60.0, 3.0, uBlockSize);
+  // random block sizes: each coarse region picks half, normal or double size
+  float base = mix(60.0, 3.0, uBlockSize);
+  vec2 region = floor(uv * vec2(base * aspect, base) / 4.0);
+  float cells = base * exp2(floor(hash(region + floor(uTime * 1.5)) * 3.0) - 1.0);
   vec2 block = floor(uv * vec2(cells * aspect, cells));
   float stuck = uBlocks > 0.005 ? step(hash(block + floor(uTime * 4.0)), uBlocks * 0.6) : 0.0;
   fuv += stuck * (vec2(hash(block + 1.7), hash(block + 4.1)) - 0.5) * 0.03;
@@ -66,12 +69,12 @@ void main() {
   gl_FragColor = vec4(mix(src, prev, keep), 1.0);
 }`
 
-// Distort pass (Distortion module): tears, pixelates, splits and recolours the frame,
+// Distort pass (Distortion module): pixelates, splits and recolours the frame,
 // then mixes in its own previous output (zoomed, rotated, shifted) so the damage can
 // leave trails. Scanlines, static and grain are added later, in the output pass.
 const DISTORT = `${COMMON}
 uniform sampler2D uFrame, uPrevDist;
-uniform float uTear, uPix, uRgb, uHueShift, uInvert, uPost, uBurn, uDFb, uDZoom, uDRot, uDShift;
+uniform float uPix, uRgb, uHueShift, uPost, uBurn, uDFb, uDZoom, uDRot, uDShift;
 
 vec3 hueRotate(vec3 c, float a) {
   const vec3 k = vec3(0.57735);
@@ -83,9 +86,6 @@ void main() {
   vec2 uv = gl_FragCoord.xy / uRes;
   vec2 base = uv;
   float aspect = uRes.x / uRes.y;
-  float jit = floor(uTime * 14.0);
-  float row = floor(uv.y * 80.0);
-  if (hash(vec2(row, jit)) < uTear * 0.6) uv.x += (hash(vec2(row + 7.0, jit)) - 0.5) * 0.35 * uTear;
   if (uPix > 0.01) {
     vec2 n = vec2(aspect, 1.0) * mix(160.0, 8.0, pow(uPix, 0.7));
     uv = (floor(uv * n) + 0.5) / n;
@@ -98,7 +98,6 @@ void main() {
     float levels = floor(mix(12.0, 2.0, uPost));
     col = floor(col * levels + 0.5) / levels;
   }
-  col = mix(col, 1.0 - col, uInvert);
   col = mix(col, clamp((col - 0.5) * (1.0 + uBurn * 4.0) + 0.5 + uBurn * 0.15, 0.0, 1.0), uBurn);
 
   if (uDFb > 0.005) {
@@ -118,11 +117,16 @@ void main() {
 const OUTPUT = `${COMMON}
 uniform sampler2D uImage;
 uniform float uStatic, uScan, uGrain;
+uniform vec2 uRand;
+// A fresh random offset every frame, so static and grain never show a repeating pattern.
+float rnd(vec2 p) {
+  return fract(sin(dot(p + uRand, vec2(12.9898, 78.233))) * 43758.5453);
+}
 void main() {
   vec3 col = texture2D(uImage, gl_FragCoord.xy / uRes).rgb;
   col *= 1.0 - uScan * 0.5 * step(0.5, fract(gl_FragCoord.y * 0.5));
-  col = mix(col, vec3(hash(gl_FragCoord.xy + uTime)), uStatic * 0.75);
-  col += (hash(gl_FragCoord.xy + fract(uTime * 7.0) * 91.0) - 0.5) * uGrain * 0.3;
+  col = mix(col, vec3(rnd(gl_FragCoord.xy)), uStatic * 0.75);
+  col += (rnd(gl_FragCoord.xy * 1.37 + 17.0) - 0.5) * uGrain * 0.3;
   gl_FragColor = vec4(col, 1.0);
 }`
 
@@ -273,11 +277,9 @@ export function createField(canvas) {
       gl.uniform1i(du.uPrevDist, 1)
       gl.uniform2f(du.uRes, w, h)
       gl.uniform1f(du.uTime, time)
-      gl.uniform1f(du.uTear, v['distort.tear'])
       gl.uniform1f(du.uPix, v['distort.pixelate'])
       gl.uniform1f(du.uRgb, v['distort.rgb'])
       gl.uniform1f(du.uHueShift, v['distort.hueshift'])
-      gl.uniform1f(du.uInvert, v['distort.invert'])
       gl.uniform1f(du.uPost, v['distort.posterize'])
       gl.uniform1f(du.uBurn, v['distort.burn'])
       gl.uniform1f(du.uDFb, v['distort.feedback'])
@@ -297,6 +299,7 @@ export function createField(canvas) {
       gl.uniform1f(ou.uStatic, v['distort.static'])
       gl.uniform1f(ou.uScan, v['distort.scanlines'])
       gl.uniform1f(ou.uGrain, v['distort.grain'])
+      gl.uniform2f(ou.uRand, Math.random() * 1000, Math.random() * 1000)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       cur = 1 - cur
     },

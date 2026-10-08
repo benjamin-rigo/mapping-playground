@@ -5,7 +5,7 @@ import { parseDataset } from './isc.js'
 import { createSampler, pickWeighted } from './sampler.js'
 import { ALGORITHMS, DEFAULT_KNOBS, LINK_KEYS, PARAMS, algoIndex, applyPatches, setPatch } from './params.js'
 import { DEFAULTS, PRESETS, decodeSettings, encodeSettings, sanitize } from './settings.js'
-import { droneChord, noteFor, scaleNotes } from './synth.js'
+import { DIVISIONS, SYNTH_RANGE, bpmOf, droneChord, noteAt, noteName, scaleNotes } from './music.js'
 
 const snapshot = JSON.parse(readFileSync(new URL('../../public/snapshot.json', import.meta.url)))
 
@@ -76,9 +76,13 @@ describe('settings', () => {
   })
 
   it('keeps every knob in the frozen link order, and old 1.0.1 links still decode', () => {
-    expect(new Set(LINK_KEYS)).toEqual(new Set(PARAMS.map((p) => p.key)))
+    for (const p of PARAMS) expect(LINK_KEYS).toContain(p.key)
     const night = decodeSettings('cAUEuAAABQAJjAw8EKwVQBw8IVgkAClMLVA1eDhMQFhExEg0TDhQgFQAWERcAGC8ZFxoEHQchMCQoJjIoSioAKwAsAC1kLgMvADAxM0s0SzcoOWQ7MTwCPiVDIkRFRyYLAw6HBANQBRGRAweXABqdARV7Bi6QBTiHBjmOBDuZBUOB')
-    expect(night).toEqual(PRESETS.find((p) => p.name === 'Night scan').settings)
+    const preset = PRESETS.find((p) => p.name === 'Night scan').settings
+    // removed knobs are dropped; the visual and the matrix come back exactly
+    expect(night.patches).toEqual(preset.patches)
+    for (const k of Object.keys(preset.knobs).filter((k) => k.startsWith('noise.') || k.startsWith('distort.'))) expect(night.knobs[k]).toBe(preset.knobs[k])
+    expect(Object.keys(night.knobs).sort()).toEqual(PARAMS.map((p) => p.key).sort())
   })
 
   it('still reads the older JSON links', () => {
@@ -88,7 +92,7 @@ describe('settings', () => {
 
   it('round-trips through the hash', () => {
     const s = structuredClone(DEFAULTS)
-    s.knobs['distort.tear'] = 0.77
+    s.knobs['distort.burn'] = 0.77
     s.patches.push({ source: 'threat', target: 'drone.index', amount: -0.25 })
     s.knobs['drone.scale'] = 0.7
     expect(decodeSettings(encodeSettings(s))).toEqual(s)
@@ -126,13 +130,13 @@ describe('algorithms', () => {
 })
 
 describe('droneChord', () => {
-  it('builds root, third, fifth and octave inside the scale', () => {
-    const chord = droneChord(0, 0, 'A', 'minor')
+  it('builds root, third, fifth and octave inside the scale, low to high with pitch', () => {
+    const chord = droneChord(0, 'A', 'minor')
     const inScale = new Set(scaleNotes('A', 'minor'))
     expect(chord.every((m) => inScale.has(m))).toBe(true)
     expect(chord[3] - chord[0]).toBe(12)
-    expect(chord[1] - chord[0]).toBe(3)
-    expect(droneChord(1, 1, 'A', 'minor')[0]).toBeGreaterThan(droneChord(0, 1, 'A', 'minor')[0])
+    expect([3, 4]).toContain(chord[1] - chord[0])
+    expect(droneChord(1, 'A', 'minor')[0] - droneChord(0, 'A', 'minor')[0]).toBeGreaterThanOrEqual(36)
   })
 })
 
@@ -145,13 +149,19 @@ describe('setPatch', () => {
   })
 })
 
-describe('noteFor', () => {
-  it('stays in the scale and spans the range', () => {
-    const lo = noteFor(0, 0, 'A', 'minor')
-    const hi = noteFor(1, 0, 'A', 'minor')
-    expect(hi - lo).toBe(12)
-    expect(noteFor(1, 1, 'A', 'minor') - noteFor(0, 1, 'A', 'minor')).toBe(48)
-    expect((noteFor(0.5, 0.5, 'C', 'pentatonic') % 12 + 12) % 12).toSatisfy((pc) => [0, 3, 5, 7, 10].includes(pc))
+describe('music', () => {
+  it('maps the note knob over six octaves of the scale and names notes', () => {
+    expect(noteAt(0, 'C', 'minor', ...SYNTH_RANGE)).toBe(24)
+    expect(noteAt(1, 'C', 'minor', ...SYNTH_RANGE)).toBe(96)
+    expect((noteAt(0.5, 'C', 'pentatonic', ...SYNTH_RANGE) % 12 + 12) % 12).toSatisfy((pc) => [0, 3, 5, 7, 10].includes(pc))
+    expect(noteName(60)).toBe('C4')
+    expect(noteName(61)).toBe('C#4')
+  })
+
+  it('has tempo and note divisions', () => {
+    expect(bpmOf(0)).toBe(60)
+    expect(bpmOf(1)).toBe(180)
+    expect(DIVISIONS.find(([n]) => n === '1/4')[1]).toBe(1)
   })
 })
 
