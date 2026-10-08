@@ -48,7 +48,7 @@ export function AboutDialog() {
             <p>
               DShield publishes summaries, not a feed of individual packets. The app turns them into a stream of roughly
               three attacks per second, weighted by how often each address and port really appears, with occasional
-              port-scan bursts. If the service cannot be reached, a saved snapshot is used. Nothing about you is
+              port-scan bursts. If the service cannot be reached (or is too slow), a snapshot bundled with the app is used, so it works offline. Nothing about you is
               collected or stored.
             </p>
           </Section>

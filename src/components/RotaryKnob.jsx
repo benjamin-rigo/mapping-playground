@@ -1,6 +1,7 @@
 import { memo, useContext, useEffect, useRef } from 'react'
 import { EngineContext } from '@/components/Meter'
 import { useDrag } from '@/components/useDrag'
+import { onFrame } from '@/lib/ticker'
 import { cn } from '@/lib/utils'
 
 const SIZE = 36
@@ -38,10 +39,14 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
   // Animate the live modulated value straight into the SVG, without re-rendering.
   useEffect(() => {
     if (!modulated || !engine || !id) return
-    let raf
-    const loop = () => {
+    // skip the DOM write when nothing moved
+    let last = null
+    let lastBase = null
+    return onFrame(() => {
       const live = engine.live[id]
-      if (live != null && liveArc.current) {
+      if (live != null && liveArc.current && (live !== last || valueRef.current !== lastBase)) {
+        last = live
+        lastBase = valueRef.current
         const base = valueRef.current
         const [x, y] = point(live, R)
         liveDot.current.setAttribute('cx', x)
@@ -49,10 +54,7 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
         liveDot.current.style.opacity = 1
         liveArc.current.setAttribute('d', Math.abs(live - base) > 0.003 ? arc(Math.min(live, base), Math.max(live, base)) : '')
       }
-      raf = requestAnimationFrame(loop)
-    }
-    loop()
-    return () => cancelAnimationFrame(raf)
+    })
   }, [modulated, engine, id])
 
   const start = useRef(value)

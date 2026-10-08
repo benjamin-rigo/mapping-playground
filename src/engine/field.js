@@ -195,7 +195,7 @@ function program(gl, frag) {
 // distort pass from its own previous output (two ping-pong pairs), then the output
 // pass adds the non-accumulating noise on top.
 export function createField(canvas) {
-  const gl = canvas.getContext('webgl', { antialias: false, preserveDrawingBuffer: true })
+  const gl = canvas.getContext('webgl', { antialias: false })
   if (!gl) return { render() {} }
 
   const frame = program(gl, FRAME)

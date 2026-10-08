@@ -11,7 +11,7 @@ const REFRESH_MS = 4 * 60 * 1000
 const DENSITY_WINDOW_MS = 5000
 const HIT_DECAY_S = 0.2
 
-export function createEngine({ canvas, snapshotUrl, onStatus }) {
+export function createEngine({ canvas, onStatus }) {
   const field = createField(canvas)
   const synth = createSynth()
   const sources = createSources()
@@ -104,7 +104,7 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
   raf = requestAnimationFrame(frame)
 
   async function refresh() {
-    data = await loadDataset(snapshotUrl)
+    data = await loadDataset()
     sampler.setData(data)
     if (running) onStatus?.(data.live ? 'live' : 'offline')
   }
@@ -116,11 +116,18 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
       if (running) return
       running = true
       onStatus?.('loading')
-      await synth.start()
-      await refresh()
+      try {
+        await synth.start()
+        await refresh()
+      } catch (err) {
+        // e.g. the browser refused to start audio; go back to a clean stopped state
+        console.error(err)
+        this.stop()
+        return
+      }
       if (!running) return
       sampler.start()
-      refreshTimer = setInterval(() => refresh(), REFRESH_MS)
+      refreshTimer = setInterval(() => refresh().catch(() => {}), REFRESH_MS)
     },
     stop() {
       running = false

@@ -350,3 +350,19 @@ All four are mappable and appended to LINK_KEYS. Measured at 61 fps with each on
 - It sets a grid at the global Tempo: Off, 1/32, 1/16, 1/8, 1/4, 1/2 or 1 bar. Each attack waits for the next grid point before it fires the synth, Hit and the event knobs.
 - When several attacks arrive within one step, the latest plays (sample and hold). Density still counts every arrival.
 - Measured at 1/8 and 120 BPM: note onsets fall on 250 ms multiples within 4 ms.
+
+## Revision 14 (2026-10-08): review fixes
+
+- **Reliability.** The fallback snapshot is now imported into the bundle (`src/engine/snapshot.json`), so it needs no network. ISC requests time out after 6 s, and engine start failures return to a clean stopped state.
+  - Before: going offline after page load, or a stalled API, left the app stuck on "Connecting".
+  - After: both cases show "Offline · snapshot" and play.
+- **Performance.**
+  - Continuous synth updates skip automation when the target value is unchanged: 1,081 → 148 automation calls/s.
+  - Knob arcs, scopes and matrix bars share one requestAnimationFrame ticker and skip unchanged DOM writes: 1,445 → 120 rAF callbacks/s.
+  - WebGL no longer uses preserveDrawingBuffer.
+- **Security.**
+  - `shadcn` (CLI and CSS source) moved to devDependencies; `npm audit --omit=dev` reports 0 vulnerabilities.
+  - A build-only Content-Security-Policy meta tag: script-src self + blob: (Tone's AudioWorklet), connect-src self + blob: + isc.sans.edu, object-src none, form-action none. It was verified with zero violations, with audio including the crusher worklet, live data and fonts all working.
+- **Not done (separate decisions):**
+  - Replacing Tone.js with native nodes (bundle 719 kB / 218 kB gzip).
+  - A flashing limit or photosensitivity warning.

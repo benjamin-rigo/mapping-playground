@@ -1,4 +1,6 @@
 import { THREAT } from './fields.js'
+// Bundled with the code, so the offline fallback needs no network at all.
+import snapshot from './snapshot.json'
 
 const API = 'https://isc.sans.edu/api'
 
@@ -21,13 +23,14 @@ export function parseDataset({ ports, ips, infocon }) {
   }
 }
 
+// A stalled API must not leave the app stuck on "Connecting".
 const getJson = async (url) => {
-  const r = await fetch(url)
+  const r = await fetch(url, { signal: AbortSignal.timeout(6000) })
   if (!r.ok) throw new Error(`${url} -> ${r.status}`)
   return r.json()
 }
 
-export async function loadDataset(snapshotUrl) {
+export async function loadDataset() {
   try {
     const [ports, ips, infocon] = await Promise.all([
       getJson(`${API}/topports/records/25?json`),
@@ -36,6 +39,6 @@ export async function loadDataset(snapshotUrl) {
     ])
     return { ...parseDataset({ ports, ips, infocon }), live: true }
   } catch {
-    return { ...parseDataset(await getJson(snapshotUrl)), live: false }
+    return { ...parseDataset(snapshot), live: false }
   }
 }

@@ -136,7 +136,17 @@ export function createSynth() {
   }
 
   const now = () => raw.currentTime
-  const glideTo = (param, value, tc) => param.setTargetAtTime(value, now(), tc)
+  // Continuous updates run ~20 times a second; only schedule when the target really
+  // changed, so the audio thread isn't flooded with identical automation events.
+  const targets = new WeakMap()
+  const changed = (param, value) => {
+    const prev = targets.get(param)
+    if (prev !== undefined && Math.abs(prev - value) <= Math.abs(value) * 1e-4 + 1e-6) return false
+    targets.set(param, value)
+    return true
+  }
+  const glideTo = (param, value, tc) => changed(param, value) && param.setTargetAtTime(value, now(), tc)
+  const rampTo = (param, value, time) => changed(param, value) && param.rampTo(value, time)
 
   const cache = new Map()
   const cached = (key, make) => {
@@ -455,7 +465,8 @@ export function createSynth() {
         glideTo(t.breathe.gain, f * ratio * index * v['drone.motion'] * 0.8, tc)
         glideTo(t.fb.gain, f * ratio * v['drone.feedback'] * 3, tc)
       })
-      n.idxLfo.frequency.value = 0.05 + v['drone.motion'] * 0.4
+      const idxRate = 0.05 + v['drone.motion'] * 0.4
+      if (changed(n.idxLfo.frequency, idxRate)) n.idxLfo.frequency.value = idxRate
       const spread = v['drone.spread'] * 25
       for (const t of n.tones) for (const { o, side } of t.pair) glideTo(o.detune, side * spread, tc)
       n.tones.forEach((t, i) => glideTo(t.g.gain, i === 0 ? 0.35 : Math.max(0, Math.min(1, v['drone.voicing'] * 4 - i + 1)) * 0.25, 0.2))
@@ -469,19 +480,21 @@ export function createSynth() {
       const makeup = type === 'bandpass' ? 3 + Q * 0.25 : type === 'highpass' ? 1.8 : 1
       glideTo(n.dFilter.frequency, cutoff, tc)
       glideTo(n.lfoDepth.gain, cutoff * 0.6 * v['drone.motion'], tc)
-      n.lfo.frequency.value = 0.03 + v['drone.motion'] * 0.5
+      const lfoRate = 0.03 + v['drone.motion'] * 0.5
+      if (changed(n.lfo.frequency, lfoRate)) n.lfo.frequency.value = lfoRate
       glideTo(n.ampDepth.gain, v['drone.motion'] * 0.35, tc)
       glideTo(n.droneOut.gain, v['drone.level'] ** 2 * 0.5 * makeup, tc)
 
       if (Math.abs(n.drive.distortion - (0.2 + v['fx.drive'] * 0.8)) > 0.02) n.drive.distortion = 0.2 + v['fx.drive'] * 0.8
-      n.drive.wet.rampTo(Math.min(1, v['fx.drive'] * 1.5), tc)
-      n.crusher.bits.value = 16 - v['fx.crush'] * 13
-      n.crusher.wet.rampTo(v['fx.crush'] > 0.02 ? 1 : 0, tc)
-      n.delay.wet.rampTo(v['fx.delay'] * 0.7, tc)
+      rampTo(n.drive.wet, Math.min(1, v['fx.drive'] * 1.5), tc)
+      const bits = 16 - v['fx.crush'] * 13
+      if (changed(n.crusher.bits, bits)) n.crusher.bits.value = bits
+      rampTo(n.crusher.wet, v['fx.crush'] > 0.02 ? 1 : 0, tc)
+      rampTo(n.delay.wet, v['fx.delay'] * 0.7, tc)
       const delaySeconds = step(v['fx.sync'], 2) ? (DIVISIONS[step(v['fx.time'], DIVISIONS.length)][1] * 60) / bpm : expMap(v['fx.time'], 0.05, 1.2)
-      n.delay.delayTime.rampTo(Math.min(4, delaySeconds), 0.1)
-      n.delay.feedback.rampTo(v['fx.feedback'] * 0.9, tc)
-      n.reverb.wet.rampTo(v['fx.reverb'], tc)
+      rampTo(n.delay.delayTime, Math.min(4, delaySeconds), 0.1)
+      rampTo(n.delay.feedback, v['fx.feedback'] * 0.9, tc)
+      rampTo(n.reverb.wet, v['fx.reverb'], tc)
       if (Math.abs(v['fx.size'] - reverbSize) > 0.02) {
         reverbSize = v['fx.size']
         n.reverb.decay = expMap(reverbSize, 0.5, 10)

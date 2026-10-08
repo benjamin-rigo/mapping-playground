@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { EngineContext, SourceScope } from '@/components/Meter'
 import { useDrag } from '@/components/useDrag'
+import { onFrame } from '@/lib/ticker'
 import { Button } from '@/components/ui/button'
 import { PARAMS, SOURCES, setPatch, signal } from '@/engine/params'
 import { cn } from '@/lib/utils'
@@ -18,17 +19,15 @@ function AmountCell({ amount, source, label, onChange }) {
   // Live contribution of this patch right now (amount x signal), drawn from the centre.
   useEffect(() => {
     if (!engine || amount === 0) return
-    let raf
-    const loop = () => {
+    let last = null
+    return onFrame(() => {
       const c = amount * signal(source, engine.sources.latest[source] ?? 0)
-      if (bar.current) {
+      if (bar.current && c !== last) {
+        last = c
         bar.current.style.left = `${50 + Math.min(0, c) * 50}%`
         bar.current.style.width = `${Math.abs(c) * 50}%`
       }
-      raf = requestAnimationFrame(loop)
-    }
-    loop()
-    return () => cancelAnimationFrame(raf)
+    })
   }, [engine, amount, source])
 
   const pct = Math.round(amount * 100)

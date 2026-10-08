@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef } from 'react'
+import { onFrame } from '@/lib/ticker'
 
 // Provides the running engine (its live sources and modulated knob values).
 export const EngineContext = createContext(null)
@@ -22,7 +23,6 @@ export function SourceScope({ id, unipolar }) {
     let pendingTick = false
     let acc = 0
     let last = performance.now()
-    let raf
     const off = engine.subscribe(() => (pendingTick = true))
 
     const draw = () => {
@@ -66,7 +66,7 @@ export function SourceScope({ id, unipolar }) {
       }
     }
 
-    const loop = (now) => {
+    const offFrame = onFrame((now) => {
       acc += now - last
       last = now
       if (acc >= 33) {
@@ -78,11 +78,9 @@ export function SourceScope({ id, unipolar }) {
         draw()
         if (readout.current) readout.current.textContent = (engine.sources.latest[id] ?? 0).toFixed(2)
       }
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
+    })
     return () => {
-      cancelAnimationFrame(raf)
+      offFrame()
       off()
     }
   }, [engine, id, unipolar])

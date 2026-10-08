@@ -69,7 +69,6 @@ export default function App() {
   useEffect(() => {
     const e = createEngine({
       canvas: canvasRef.current,
-      snapshotUrl: `${import.meta.env.BASE_URL}snapshot.json`,
       onStatus: setStatus,
     })
     setEngine(e)

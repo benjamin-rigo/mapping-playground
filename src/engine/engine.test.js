@@ -7,7 +7,7 @@ import { ALGORITHMS, DEFAULT_KNOBS, LINK_KEYS, PARAMS, algoIndex, applyPatches, 
 import { DEFAULTS, PRESETS, decodeSettings, encodeSettings, sanitize } from './settings.js'
 import { DIVISIONS, SYNTH_RANGE, bpmOf, droneChord, noteAt, noteName, scaleNotes } from './music.js'
 
-const snapshot = JSON.parse(readFileSync(new URL('../../public/snapshot.json', import.meta.url)))
+const snapshot = JSON.parse(readFileSync(new URL('./snapshot.json', import.meta.url)))
 
 const seeded = (seed = 1) => () => {
   seed = (seed * 16807) % 2147483647
