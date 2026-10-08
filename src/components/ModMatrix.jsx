@@ -4,7 +4,7 @@ import { EngineContext, SourceScope } from '@/components/Meter'
 import { useDrag } from '@/components/useDrag'
 import { onFrame } from '@/lib/ticker'
 import { Button } from '@/components/ui/button'
-import { PARAMS, SOURCES, setPatch, signal } from '@/engine/params'
+import { PARAMS, SOURCES, fullLabel, setPatch, signal } from '@/engine/params'
 import { cn } from '@/lib/utils'
 
 const clamp = (v) => Math.max(-1, Math.min(1, v))
@@ -142,7 +142,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className, 
                     {p.module.label}
                     <span className="hidden @[36rem]:inline"> · </span>
                   </span>
-                  {p.label}
+                  {fullLabel(p)}
                 </button>
               </th>
               {SOURCES.map((s) => (
@@ -150,7 +150,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className, 
                   <AmountCell
                     amount={amountOf(s.id, p.key)}
                     source={s.id}
-                    label={`${s.label} to ${p.module.label} ${p.label}`}
+                    label={`${s.label} to ${p.module.label} ${fullLabel(p)}`}
                     onChange={(a) => onPatches(setPatch(patches, s.id, p.key, a))}
                   />
                 </td>
@@ -159,7 +159,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className, 
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Clear ${p.module.label} ${p.label}`}
+                  aria-label={`Clear ${p.module.label} ${fullLabel(p)}`}
                   onClick={() => onPatches(patches.filter((x) => x.target !== p.key))}
                 >
                   <X />

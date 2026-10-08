@@ -126,7 +126,7 @@ export const MODULES = [
       p('Dirt', 'drive', 'Drive', 0.05), p('Dirt', 'crush', 'Crush', 0),
       p('Delay', 'delay', 'Amount', 0.2), p('Delay', 'time', 'Time', 0.4, { format: delayTime }),
       p('Delay', 'sync', 'Sync', 0, { format: (v) => (step(v, 2) ? 'Tempo' : 'Free'), patchable: false }),
-      p('Delay', 'feedback', 'Feedback', 0.35),
+      p('Delay', 'feedback', 'Feedback', 0.35), p('Delay', 'pingpong', 'Ping-pong', 0),
       p('Reverb', 'reverb', 'Amount', 0.45), p('Reverb', 'size', 'Size', 0.6, { patchable: false }),
     ],
   },
@@ -158,6 +158,13 @@ export const PARAMS = MODULES.flatMap((m) =>
   m.params.map((q) => ({ ...q, key: `${m.id}.${q.id}`, module: m, kind: m.kind, patchable: q.patchable !== false })),
 )
 export const PARAM_BY_KEY = Object.fromEntries(PARAMS.map((q) => [q.key, q]))
+
+// A label that is unique within its module: generic ones ("Amount", or any label used
+// twice in a module) get their section in front, e.g. "Delay amount".
+export function fullLabel(param) {
+  const twice = param.module.params.filter((q) => q.label === param.label).length > 1
+  return twice || param.label === 'Amount' ? `${param.sub} ${param.label.toLowerCase()}` : param.label
+}
 export const DEFAULT_KNOBS = Object.fromEntries(PARAMS.map((q) => [q.key, q.value]))
 
 // Hit is a trigger turned into an envelope (0 at rest), so it only pushes one way.
@@ -214,7 +221,7 @@ export const LINK_KEYS = [
   'noise.seed', 'global.quantize', 'global.bpm', 'synth.arpMode', 'synth.arpRate', 'synth.arpSteps',
   'synth.arpOctaves', 'drone.sub', 'drone.reese', 'drone.width', 'drone.drive', 'drone.attack',
   'drone.release', 'fx.sync', 'distort.dither', 'distort.halftone', 'distort.sort', 'distort.slit',
-  'drone.hold', 'drone.smooth',
+  'drone.hold', 'drone.smooth', 'fx.pingpong',
 ]
 // Keys in LINK_KEYS that no longer exist (synth.decay, synth.sustain, synth.range,
 // drone.range, distort.tear, distort.invert, distort.sort) are simply ignored when a link loads.

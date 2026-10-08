@@ -366,3 +366,8 @@ All four are mappable and appended to LINK_KEYS. Measured at 61 fps with each on
 - **Not done (separate decisions):**
   - Replacing Tone.js with native nodes (bundle 719 kB / 218 kB gzip).
   - A flashing limit or photosensitivity warning.
+
+**Revision 14a:**
+- **Scrollbars** are hidden everywhere (`scrollbar-width: none` plus `::-webkit-scrollbar`); wheel, touch and keyboard scrolling still work.
+- **Ping-pong delay:** FX → Delay → Ping-pong crossfades the sends of a mono FeedbackDelay and a PingPongDelay, which run in parallel, fully wet, with shared Time and Feedback and the same tempo sync. Amount scales both sends, and the dry signal dips by up to 35%. Measured L/R difference with a centred synth and no reverb: 1% at 0, 57% at 1.
+- **Unique labels:** `fullLabel()` puts the section in front of generic or repeated labels ("Delay amount", "Reverb amount", "Feedback amount"), in knob names and matrix rows.

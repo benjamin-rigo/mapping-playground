@@ -30,7 +30,7 @@ export function shapePartials(shape, bright) {
 // Plaits: the same Harmonics/Timbre/Morph mean something different in each), plus a
 // wavefolder (Fold) and pitch envelope (Punch) after Basimilus Iteritas, a per-voice
 // filter and envelopes. Drone: a held four-note chord in the scale with glide, morphing
-// timbre and slow filter/amp movement. Both run through drive -> crush -> delay ->
+// timbre and slow filter/amp movement. Both run through drive -> crush -> delay (mono / ping-pong) ->
 // reverb.
 export function createSynth() {
   let n = null
@@ -52,8 +52,19 @@ export function createSynth() {
     const master = new Tone.Volume(-4).toDestination()
     const limiter = new Tone.Limiter(-1).connect(master)
     const reverb = new Tone.Reverb({ decay: 4, wet: 0.4 }).connect(limiter)
-    const delay = new Tone.FeedbackDelay({ delayTime: 0.3, maxDelay: 4, feedback: 0.35, wet: 0.2 }).connect(reverb)
-    const crusher = new Tone.BitCrusher({ bits: 16, wet: 0 }).connect(delay)
+    // Delay: a mono feedback delay and a ping-pong delay side by side, both fully wet,
+    // with sends that crossfade between them (Ping-pong) and scale with Amount.
+    const crusher = new Tone.BitCrusher({ bits: 16, wet: 0 })
+    const dry = new Tone.Gain(1).connect(reverb)
+    const delay = new Tone.FeedbackDelay({ delayTime: 0.3, maxDelay: 4, feedback: 0.35, wet: 1 })
+    const pingpong = new Tone.PingPongDelay({ delayTime: 0.3, maxDelay: 4, feedback: 0.35, wet: 1 })
+    const monoSend = new Tone.Gain(0).connect(reverb)
+    const ppSend = new Tone.Gain(0).connect(reverb)
+    crusher.connect(dry)
+    crusher.connect(delay)
+    crusher.connect(pingpong)
+    delay.connect(monoSend)
+    pingpong.connect(ppSend)
     const drive = new Tone.Distortion({ distortion: 0.3, wet: 0 }).connect(crusher)
     const input = new Tone.Gain(1).connect(drive)
 
@@ -132,7 +143,7 @@ export function createSynth() {
     const sub = sine(55)
     sub.connect(subLevel)
 
-    n = { master, reverb, delay, crusher, drive, input, noise, droneOut, env, trem, dFilter, dDrive, lfo, lfoDepth, amp, ampDepth, idxLfo, tones, reese, reeseLevel, sub, subLevel }
+    n = { master, reverb, delay, pingpong, dry, monoSend, ppSend, crusher, drive, input, noise, droneOut, env, trem, dFilter, dDrive, lfo, lfoDepth, amp, ampDepth, idxLfo, tones, reese, reeseLevel, sub, subLevel }
   }
 
   const now = () => raw.currentTime
@@ -490,10 +501,15 @@ export function createSynth() {
       const bits = 16 - v['fx.crush'] * 13
       if (changed(n.crusher.bits, bits)) n.crusher.bits.value = bits
       rampTo(n.crusher.wet, v['fx.crush'] > 0.02 ? 1 : 0, tc)
-      rampTo(n.delay.wet, v['fx.delay'] * 0.7, tc)
+      const wet = v['fx.delay'] * 0.7
+      rampTo(n.dry.gain, 1 - wet * 0.5, tc)
+      rampTo(n.monoSend.gain, wet * (1 - v['fx.pingpong']), tc)
+      rampTo(n.ppSend.gain, wet * v['fx.pingpong'], tc)
       const delaySeconds = step(v['fx.sync'], 2) ? (DIVISIONS[step(v['fx.time'], DIVISIONS.length)][1] * 60) / bpm : expMap(v['fx.time'], 0.05, 1.2)
-      rampTo(n.delay.delayTime, Math.min(4, delaySeconds), 0.1)
-      rampTo(n.delay.feedback, v['fx.feedback'] * 0.9, tc)
+      for (const d of [n.delay, n.pingpong]) {
+        rampTo(d.delayTime, Math.min(4, delaySeconds), 0.1)
+        rampTo(d.feedback, v['fx.feedback'] * 0.9, tc)
+      }
       rampTo(n.reverb.wet, v['fx.reverb'], tc)
       if (Math.abs(v['fx.size'] - reverbSize) > 0.02) {
         reverbSize = v['fx.size']

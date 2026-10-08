@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { Volume2 } from 'lucide-react'
 import { RotaryKnob } from '@/components/RotaryKnob'
 import { Slider } from '@/components/ui/slider'
-import { ALGORITHMS, algoIndex } from '@/engine/params'
+import { ALGORITHMS, PARAM_BY_KEY, algoIndex, fullLabel } from '@/engine/params'
 
 function depthOf(patches, key) {
   let neg = 0
@@ -24,6 +24,7 @@ export const ModuleCard = memo(function ModuleCard({ module, knobs, patches, sel
   const header = module.params.filter((p) => p.header)
   const params = module.params.filter((p) => !p.header)
   const subs = [...new Set(params.map((p) => p.sub))]
+  const nameOf = (p) => `${module.label} ${fullLabel(PARAM_BY_KEY[`${module.id}.${p.id}`])}`
   return (
     <section className="rounded-lg border border-border bg-card px-2.5 py-2.5">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -72,7 +73,7 @@ export const ModuleCard = memo(function ModuleCard({ module, knobs, patches, sel
                       key={key}
                       id={key}
                       label={label}
-                      name={`${module.label} ${p.label}`}
+                      name={nameOf(p)}
                       display={p.format?.(knobs[key], knobs)}
                       value={knobs[key]}
                       defaultValue={p.value}

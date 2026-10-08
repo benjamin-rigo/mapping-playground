@@ -131,3 +131,11 @@
     @apply font-sans;
     }
 }
+
+/* No visible scrollbars anywhere; wheel, touch and keyboard scrolling still work. */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
