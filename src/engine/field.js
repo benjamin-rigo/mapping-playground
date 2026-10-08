@@ -69,12 +69,14 @@ void main() {
   gl_FragColor = vec4(mix(src, prev, keep), 1.0);
 }`
 
-// Distort pass (Distortion module): pixelates, splits and recolours the frame,
+// Distort pass (Distortion module): pixelates, splits, pixel-sorts and recolours the frame,
 // then mixes in its own previous output (zoomed, rotated, shifted) so the damage can
 // leave trails. Scanlines, static and grain are added later, in the output pass.
 const DISTORT = `${COMMON}
 uniform sampler2D uFrame, uPrevDist;
-uniform float uPix, uRgb, uHueShift, uPost, uBurn, uDFb, uDZoom, uDRot, uDShift;
+uniform float uPix, uRgb, uHueShift, uPost, uBurn, uDFb, uDZoom, uDRot, uDShift, uSort, uSlit;
+
+float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 
 vec3 hueRotate(vec3 c, float a) {
   const vec3 k = vec3(0.57735);
@@ -93,6 +95,25 @@ void main() {
   float split = uRgb * 0.025;
   vec3 col = vec3(texture2D(uFrame, uv + vec2(split, 0.0)).r, texture2D(uFrame, uv).g, texture2D(uFrame, uv - vec2(split, split * 0.4)).b);
 
+  // Pixel sort (approximation): inside a bright run, take the brightest pixel found
+  // further up the column, so bright areas melt downward into streaks.
+  if (uSort > 0.01) {
+    float thr = 1.0 - uSort * 0.75;
+    float best = luma(col);
+    if (best > thr) {
+      float len = uSort * 0.012;
+      for (int i = 1; i <= 28; i++) {
+        vec3 c = texture2D(uFrame, uv + vec2(0.0, float(i) * len)).rgb;
+        float l = luma(c);
+        if (l < thr) break;
+        if (l > best) {
+          best = l;
+          col = c;
+        }
+      }
+    }
+  }
+
   col = hueRotate(col, uHueShift * 6.2831853);
   if (uPost > 0.01) {
     float levels = floor(mix(12.0, 2.0, uPost));
@@ -110,13 +131,27 @@ void main() {
     vec2 puv = 0.5 + d - vec2((uDShift - 0.5) * 0.02, 0.0);
     col = mix(col, texture2D(uPrevDist, puv).rgb, uDFb * 0.96);
   }
+
+  // Slit-scan (approximation): each row refreshes more slowly the lower it is, so the
+  // picture shows a different moment per row and motion stretches down the frame.
+  if (uSlit > 0.01) {
+    // each row pulls the previous frame from a bit higher up, so the picture streams down
+    float lag = min(0.97, uSlit * (0.4 + (1.0 - base.y) * 0.8));
+    col = mix(col, texture2D(uPrevDist, base + vec2(0.0, 0.006 * uSlit)).rgb, lag);
+  }
   gl_FragColor = vec4(col, 1.0);
 }`
 
 // Output pass: scanlines, static and grain on top; never fed back.
 const OUTPUT = `${COMMON}
 uniform sampler2D uImage;
-uniform float uStatic, uScan, uGrain;
+uniform float uStatic, uScan, uGrain, uDither, uHalftone;
+
+float bayer2(vec2 a) {
+  a = floor(a);
+  return fract(dot(a, vec2(0.5, a.y * 0.75)));
+}
+float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
 uniform vec2 uRand;
 // A fresh random offset every frame, so static and grain never show a repeating pattern.
 float rnd(vec2 p) {
@@ -124,6 +159,26 @@ float rnd(vec2 p) {
 }
 void main() {
   vec3 col = texture2D(uImage, gl_FragCoord.xy / uRes).rgb;
+
+  // Halftone: a 45-degree dot screen; darker areas get bigger dots.
+  if (uHalftone > 0.01) {
+    float cell = 7.0;
+    vec2 p = mat2(0.7071, 0.7071, -0.7071, 0.7071) * gl_FragCoord.xy / cell;
+    float dist = length(fract(p) - 0.5);
+    float lum = dot(col, vec3(0.299, 0.587, 0.114));
+    float r = sqrt(1.0 - lum) * 0.62;
+    float dot_ = 1.0 - smoothstep(r - 0.06, r + 0.06, dist);
+    vec3 screened = mix(mix(col, vec3(1.0), 0.6), col * 0.35, dot_);
+    col = mix(col, screened, uHalftone);
+  }
+
+  // Dither: ordered 4x4 Bayer dithering down to fewer and fewer levels per channel.
+  if (uDither > 0.01) {
+    float levels = max(1.0, floor(mix(8.0, 1.0, pow(uDither, 0.6))));
+    vec3 d = floor(col * levels + bayer4(gl_FragCoord.xy)) / levels;
+    col = mix(col, d, min(1.0, uDither * 3.0));
+  }
+
   col *= 1.0 - uScan * 0.5 * step(0.5, fract(gl_FragCoord.y * 0.5));
   col = mix(col, vec3(rnd(gl_FragCoord.xy)), uStatic * 0.75);
   col += (rnd(gl_FragCoord.xy * 1.37 + 17.0) - 0.5) * uGrain * 0.3;
@@ -286,6 +341,8 @@ export function createField(canvas) {
       gl.uniform1f(du.uDZoom, v['distort.zoom'])
       gl.uniform1f(du.uDRot, v['distort.rotate'])
       gl.uniform1f(du.uDShift, v['distort.shift'])
+      gl.uniform1f(du.uSort, v['distort.sort'])
+      gl.uniform1f(du.uSlit, v['distort.slit'])
       gl.drawArrays(gl.TRIANGLES, 0, 3)
 
       gl.useProgram(output.prog)
@@ -299,6 +356,8 @@ export function createField(canvas) {
       gl.uniform1f(ou.uStatic, v['distort.static'])
       gl.uniform1f(ou.uScan, v['distort.scanlines'])
       gl.uniform1f(ou.uGrain, v['distort.grain'])
+      gl.uniform1f(ou.uDither, v['distort.dither'])
+      gl.uniform1f(ou.uHalftone, v['distort.halftone'])
       gl.uniform2f(ou.uRand, Math.random() * 1000, Math.random() * 1000)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       cur = 1 - cur

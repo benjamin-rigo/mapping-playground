@@ -326,3 +326,11 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 - **Naming:** consistent labels: Cutoff, Resonance, Env depth, Attack, Release, Amount, Drift, Hue range.
 - **Layout:** compact cards with 36 px knobs, five per row, and tighter spacing.
 - **Links:** removed knobs stay in LINK_KEYS and are ignored when a link loads; new knobs are appended.
+
+**Revision 13a:** Distortion gets a **Stylize** section:
+- **Pixel sort** (distort pass): inside bright runs, take the brightest pixel up to 28 samples up the column, so bright areas melt into streaks.
+- **Slit-scan** (distort pass): each row mixes in the previous distort frame sampled slightly higher, with a stronger lag lower down, so motion streams down the frame.
+- **Halftone** (output pass): a 45° dot screen; dot size follows darkness.
+- **Dither** (output pass): ordered 4×4 Bayer dithering, from 8 levels down to 1 bit.
+
+All four are mappable and appended to LINK_KEYS. Measured at 61 fps with each one at full strength.
