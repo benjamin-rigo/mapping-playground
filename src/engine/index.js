@@ -37,6 +37,23 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
     return out
   }
 
+  // Drone Smooth: a second, slower follower on the drone's continuous knobs, so it can
+  // drift over many seconds while the rest reacts fast. Stepped knobs are not smoothed
+  // (they would pass through every step); Hold paces those instead.
+  const droneLag = {}
+  const STEPPED = new Set(['drone.root', 'drone.scale', 'drone.ratio', 'drone.type', 'drone.hold', 'drone.smooth', 'drone.level'])
+  function droneSmoothed(values, dt) {
+    const k = 1 - Math.exp(-dt / expMap(values['drone.smooth'], 0.05, 30))
+    const out = { ...values }
+    for (const key in values) {
+      if (!key.startsWith('drone.') || STEPPED.has(key)) continue
+      droneLag[key] = droneLag[key] == null ? values[key] : droneLag[key] + (values[key] - droneLag[key]) * k
+      out[key] = droneLag[key]
+      live[key] = droneLag[key]
+    }
+    return out
+  }
+
   const sampler = createSampler({
     emit(event) {
       recent.push(performance.now())
@@ -68,7 +85,7 @@ export function createEngine({ canvas, snapshotUrl, onStatus }) {
     audioClock += dt
     if (audioClock > 0.05) {
       audioClock = 0
-      synth.setContinuous(values, tau)
+      synth.setContinuous(droneSmoothed(values, 0.05), tau)
     }
     raf = requestAnimationFrame(frame)
   }

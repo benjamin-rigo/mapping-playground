@@ -39,6 +39,16 @@ export const ARP_MODES = ['Off', 'Up', 'Down', 'Up-down', 'Random']
 // Arp rates: a subset of the note divisions.
 export const ARP_RATES = DIVISIONS.filter(([name]) => ['1/32', '1/16T', '1/16', '1/8T', '1/8', '1/4T', '1/4'].includes(name))
 export const QUANTIZE_STEPS = [0, 2, 3, 4, 6, 8, 12, 16, 24]
+// Drone Hold: how often (in beats) the chord, key and scale may change. 0 = free.
+export const HOLD_BEATS = [
+  ['Free', 0],
+  ['1/4', 1],
+  ['1/2', 2],
+  ['1 bar', 4],
+  ['2 bars', 8],
+  ['4 bars', 16],
+  ['8 bars', 32],
+]
 
 // Display helpers; they get the knob value and all knobs (for key, tempo and sync).
 const pct = (v) => `${Math.round(v * 100)}%`
@@ -89,6 +99,8 @@ export const MODULES = [
       p('Key', 'scale', 'Scale', stepValue(0, 8), { format: (v) => SCALES[step(v, 8)] }),
       p('Key', 'pitch', 'Pitch', 0.5, { format: dronePitch }), p('Key', 'glide', 'Glide', 0.5, { format: time(0.01, 6) }),
       p('Key', 'voicing', 'Voicing', 0.6),
+      p('Pace', 'hold', 'Hold', stepValue(3, 7), { format: (v) => HOLD_BEATS[step(v, HOLD_BEATS.length)][0] }),
+      p('Pace', 'smooth', 'Smooth', 0.5, { format: time(0.05, 30) }),
       p('FM', 'ratio', 'Ratio', stepValue(1, DRONE_RATIOS.length), { format: (v) => `×${DRONE_RATIOS[step(v, DRONE_RATIOS.length)]}` }),
       p('FM', 'index', 'Index', 0.25), p('FM', 'feedback', 'Feedback', 0), p('FM', 'spread', 'Detune', 0.3),
       p('Bass', 'sub', 'Sub', 0), p('Bass', 'reese', 'Reese', 0), p('Bass', 'width', 'Width', 0.4), p('Bass', 'drive', 'Drive', 0),
@@ -193,6 +205,7 @@ export const LINK_KEYS = [
   'noise.seed', 'global.quantize', 'global.bpm', 'synth.arpMode', 'synth.arpRate', 'synth.arpSteps',
   'synth.arpOctaves', 'drone.sub', 'drone.reese', 'drone.width', 'drone.drive', 'drone.attack',
   'drone.release', 'fx.sync', 'distort.dither', 'distort.halftone', 'distort.sort', 'distort.slit',
+  'drone.hold', 'drone.smooth',
 ]
 // Keys in LINK_KEYS that no longer exist (synth.decay, synth.sustain, synth.range,
 // drone.range, distort.tear, distort.invert, distort.sort) are simply ignored when a link loads.

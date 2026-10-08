@@ -335,3 +335,8 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 
 All four are mappable and appended to LINK_KEYS. Measured at 61 fps with each one at full strength.
 **Revision 13b:** Pixel sort removed at the user's request.
+
+**Revision 13c (drone pace):** The Drone gets a **Pace** section.
+- **Hold** (Free, 1/4, 1/2, 1 bar, 2 bars, 4 bars, 8 bars, at the global Tempo; default 1 bar) lets the chord change, and with it the key the synth follows, at most once per period.
+- **Smooth** (50 ms–30 s) adds a second, slow follower on the drone's continuous knobs. It skips the stepped knobs (root, scale, ratio, type), which Hold paces instead. The drone knobs' live arcs show the smoothed value.
+- Measured with Port → Drone Pitch at 120 BPM: Free gave 88 chord changes in 8 s, 1/2 gave 6, and 2 bars gave 2.

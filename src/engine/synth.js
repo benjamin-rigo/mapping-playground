@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import { ALGORITHMS, ARP_MODES, ARP_RATES, DRONE_RATIOS, FILTER_TYPES, algoIndex } from './params.js'
+import { ALGORITHMS, ARP_MODES, ARP_RATES, DRONE_RATIOS, FILTER_TYPES, HOLD_BEATS, algoIndex } from './params.js'
 import { DIVISIONS, ROOTS, SCALES, SYNTH_RANGE, bpmOf, droneChord, expMap, mtof, noteAt, scaleNotes, step } from './music.js'
 
 export { expMap }
@@ -44,6 +44,7 @@ export function createSynth() {
   let droneKey = ''
   let droneFreqs = [110, 110, 110, 110]
   let droneDrive = -1
+  let lastChange = 0
   let bpm = 120
   let master = 0.8
   function build() {
@@ -403,11 +404,19 @@ export function createSynth() {
       if (!ready) return
       const tc = Math.max(0.01, tau / 3)
 
-      root = ROOTS[step(v['drone.root'], ROOTS.length)]
-      scale = SCALES[step(v['drone.scale'], SCALES.length)]
       bpm = bpmOf(v['global.bpm'])
-      const chord = droneChord(v['drone.pitch'], root, scale)
-      const key = chord.join()
+      const nextRoot = ROOTS[step(v['drone.root'], ROOTS.length)]
+      const nextScale = SCALES[step(v['drone.scale'], SCALES.length)]
+      const chord = droneChord(v['drone.pitch'], nextRoot, nextScale)
+      let key = chord.join()
+      // Hold: the chord (and the key the synth follows) may only change on a beat grid.
+      const holdBeats = HOLD_BEATS[step(v['drone.hold'], HOLD_BEATS.length)][1]
+      if (key !== droneKey && droneKey !== '' && holdBeats && now() - lastChange < (holdBeats * 60) / bpm) key = droneKey
+      else if (key !== droneKey) {
+        lastChange = now()
+        root = nextRoot
+        scale = nextScale
+      }
       const glide = expMap(v['drone.glide'], 0.01, 6) / 3
       const attack = expMap(v['drone.attack'], 0.05, 8)
       const release = expMap(v['drone.release'], 0.05, 8)
@@ -415,7 +424,7 @@ export function createSynth() {
         // AR: every new chord fades the old one out over Release, then swells in over Attack.
         const first = droneKey === ''
         droneKey = key
-        droneFreqs = chord.map(mtof)
+        droneFreqs = key.split(',').map(Number).map(mtof)
         const t0 = now()
         const swell = first ? t0 : t0 + release
         n.env.gain.cancelScheduledValues(t0)
