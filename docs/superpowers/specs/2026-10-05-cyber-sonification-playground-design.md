@@ -291,3 +291,15 @@ The scenes/tension concept was dropped. The tool is now four clearly separated m
 **After 1.0.1:**
 - Noise → Shape gets **Seed**, which offsets the noise sample window (seed × (137.3, 91.7)) so the same settings show a different pattern. It is mappable.
 - Share links now index knobs through a frozen `LINK_KEYS` list (the 1.0.1 order, plus appended keys), so adding knobs anywhere in a module no longer breaks old links. A test checks that the 1.0.1 Night scan link still decodes to the preset.
+- **Mobile layout.** Problems found at 375 px:
+  - The header wrapped to 3 rows, and the canvas took 40% of the height, leaving about 360 px for a 3,400 px stack.
+  - The matrix had a nested scroll, and the Response knob overlapped its column headers.
+  - Knobs grabbed every vertical swipe, so the page could barely scroll.
+
+  Fixes:
+  - A two-row compact header (title, About, Start / status, presets, volume, copy as an icon).
+  - The canvas at 32dvh.
+  - A bottom tab bar (Visual · Matrix · Sound) that shows one section at a time.
+  - The matrix's corner controls move above the table in narrow containers.
+  - Touch gestures: knobs and matrix cells drag horizontally (touch-action: pan-y), so vertical swipes scroll. Selection happens on tap or drag, not on every touch, and a browser-cancelled gesture counts as a scroll, not a tap.
+  - Mouse behaviour is unchanged (vertical drag with pointer lock).

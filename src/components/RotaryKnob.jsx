@@ -22,7 +22,7 @@ function arc(from, to) {
   return `M ${c + R * Math.cos(a0)} ${c + R * Math.sin(a0)} A ${R} ${R} 0 ${large} 1 ${c + R * Math.cos(a1)} ${c + R * Math.sin(a1)}`
 }
 
-// Drag up/down to turn; touching it selects it (highlights its row in the matrix);
+// Drag up/down (touch: left/right) to turn; touching it selects it (highlights its row in the matrix);
 // double-click to reset. The faint white arc is the modulation range; the bright
 // arc and dot show where the data is pushing it right now.
 export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, defaultValue, onChange, onSelect, selected, modNeg = 0, modPos = 0, display }) {
@@ -57,9 +57,13 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
 
   const start = useRef(value)
   const drag = useDrag({
-    onStart() {
+    onStart(e) {
       start.current = valueRef.current
-      onSelect?.(id)
+      // on touch, select on tap or drag only, so swiping past knobs to scroll doesn't
+      if (e.pointerType !== 'touch') onSelect?.(id)
+    },
+    onEnd(moved, cancelled, touch) {
+      if (touch && !cancelled) onSelect?.(id)
     },
     onDrag(dy, e) {
       onChange(Math.round(clamp01(start.current + dy / (e.shiftKey ? 600 : 150)) * 100) / 100, id)
@@ -94,7 +98,7 @@ export const RotaryKnob = memo(function RotaryKnob({ id, label, name, value, def
         onDoubleClick={() => defaultValue != null && onChange(defaultValue, id)}
         onKeyDown={onKeyDown}
         className={cn(
-          'cursor-ns-resize touch-none rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          'cursor-ns-resize touch-pan-y rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
           selected && 'ring-2 ring-white',
         )}
       >

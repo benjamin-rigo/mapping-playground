@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Check, Link, Maximize, Minimize, Play, Square, Volume2 } from 'lucide-react'
+import { AudioLines, Check, Grid3x3, Image, Link, Maximize, Minimize, Play, Square, Volume2 } from 'lucide-react'
 import { AboutDialog } from '@/components/AboutDialog'
 import { EngineContext } from '@/components/Meter'
 import { ModMatrix } from '@/components/ModMatrix'
@@ -16,10 +16,10 @@ import { cn } from '@/lib/utils'
 import { DEFAULTS, PRESETS, decodeSettings, encodeSettings } from '@/engine/settings'
 
 const STATUS = {
-  idle: { label: 'Stopped', variant: 'outline' },
-  loading: { label: 'Connecting', variant: 'secondary' },
-  live: { label: 'Live · SANS ISC', variant: 'default' },
-  offline: { label: 'Offline · snapshot', variant: 'destructive' },
+  idle: { label: 'Stopped', short: 'Stopped', variant: 'outline' },
+  loading: { label: 'Connecting', short: 'Connecting', variant: 'secondary' },
+  live: { label: 'Live · SANS ISC', short: 'Live', variant: 'default' },
+  offline: { label: 'Offline · snapshot', short: 'Offline', variant: 'destructive' },
 }
 
 function initialSettings() {
@@ -61,6 +61,7 @@ export default function App() {
   const [status, setStatus] = useState('idle')
   const [copied, setCopied] = useState(false)
   const [selected, setSelected] = useState(null)
+  const [mobileTab, setMobileTab] = useState('visual')
   const isDesktop = useIsDesktop()
 
   useEffect(() => {
@@ -193,14 +194,14 @@ export default function App() {
 
   const visualPanel = (
     <div className={panelClass}>
-      <h2 className="sticky top-0 z-10 -mx-3 -mb-3 bg-background px-3 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase max-md:mx-0 max-md:px-0">Visual</h2>
+      <h2 className="sticky top-0 z-10 -mx-3 -mb-3 bg-background px-3 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase max-md:hidden">Visual</h2>
       {MODULES.filter((m) => m.group === 'visual').map((m) => card(m))}
     </div>
   )
 
   const soundPanel = (
     <div className={panelClass}>
-      <h2 className="sticky top-0 z-10 -mx-3 -mb-3 bg-background px-3 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase max-md:mx-0 max-md:px-0">Sound</h2>
+      <h2 className="sticky top-0 z-10 -mx-3 -mb-3 bg-background px-3 py-3 text-xs font-medium tracking-wider text-muted-foreground uppercase max-md:hidden">Sound</h2>
       {MODULES.filter((m) => m.group === 'sound').map((m) => card(m))}
     </div>
   )
@@ -208,16 +209,21 @@ export default function App() {
   return (
     <EngineContext.Provider value={engine}>
       <div className="flex h-dvh flex-col bg-background text-foreground">
-        <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-          <h1 className="text-sm font-semibold tracking-tight">Cyber Sonification Playground</h1>
-          <div className="mr-auto">
+        {/* Mobile: two rows (title, about, start / status, presets, volume, copy). Desktop: one row in DOM order. */}
+        <header className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 md:px-4 md:py-3">
+          <h1 className="order-1 min-w-0 flex-1 truncate text-sm font-semibold tracking-tight md:order-none md:flex-none">
+            Cyber Sonification Playground
+          </h1>
+          <div className="order-2 md:order-none md:mr-auto">
             <AboutDialog />
           </div>
-          <Badge variant={STATUS[status].variant} aria-live="polite">
-            {STATUS[status].label}
+          <div className="order-4 h-0 basis-full md:hidden" aria-hidden />
+          <Badge variant={STATUS[status].variant} aria-live="polite" className="order-5 md:order-none">
+            <span className="sm:hidden">{STATUS[status].short}</span>
+            <span className="hidden sm:inline">{STATUS[status].label}</span>
           </Badge>
           <Select value={preset} onValueChange={loadPreset}>
-            <SelectTrigger size="sm" className="w-36" aria-label="Load preset">
+            <SelectTrigger size="sm" className="order-6 w-auto min-w-0 flex-1 md:order-none md:w-36 md:flex-none" aria-label="Load preset">
               <SelectValue placeholder="Presets" />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -228,7 +234,7 @@ export default function App() {
               ))}
             </SelectContent>
           </Select>
-          <label className="flex items-center gap-2 text-muted-foreground">
+          <label className="order-7 flex items-center gap-2 text-muted-foreground md:order-none">
             <Volume2 className="size-4" aria-hidden />
             <Slider
               value={[settings.master]}
@@ -237,13 +243,13 @@ export default function App() {
               step={0.01}
               onValueChange={([master]) => edit({ master })}
               aria-label="Master volume"
-              className="w-24"
+              className="w-16 sm:w-24"
             />
           </label>
-          <Button variant="outline" size="sm" onClick={copyLink}>
-            {copied ? <Check /> : <Link />} {copied ? 'Copied' : 'Copy link'}
+          <Button variant="outline" size="sm" onClick={copyLink} aria-label={copied ? 'Copied' : 'Copy link'} className="order-8 md:order-none">
+            {copied ? <Check /> : <Link />} <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy link'}</span>
           </Button>
-          <Button size="sm" onClick={() => (running ? engine.stop() : engine.start())}>
+          <Button size="sm" onClick={() => (running ? engine.stop() : engine.start())} className="order-3 md:order-none">
             {running ? <Square /> : <Play />} {running ? 'Stop' : 'Start'}
           </Button>
         </header>
@@ -272,12 +278,36 @@ export default function App() {
           </ResizablePanelGroup>
         ) : (
           <main className="flex min-h-0 flex-1 flex-col">
-            <div className="h-[40dvh] shrink-0">{stage}</div>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
-              {matrix('max-h-[45dvh] rounded-lg border border-border px-2 pb-2')}
-              {visualPanel}
-              {soundPanel}
+            <div className="h-[32dvh] shrink-0">{stage}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-1 pb-3">
+              {mobileTab === 'visual' ? visualPanel : mobileTab === 'sound' ? soundPanel : matrix('px-0')}
             </div>
+            <nav
+              role="tablist"
+              aria-label="Sections"
+              className="grid shrink-0 grid-cols-3 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"
+            >
+              {[
+                ['visual', 'Visual', Image],
+                ['matrix', 'Matrix', Grid3x3],
+                ['sound', 'Sound', AudioLines],
+              ].map(([id, label, Icon]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={mobileTab === id}
+                  onClick={() => setMobileTab(id)}
+                  className={cn(
+                    'flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] outline-none focus-visible:bg-muted',
+                    mobileTab === id ? 'text-foreground' : 'text-muted-foreground',
+                  )}
+                >
+                  <Icon className="size-5" aria-hidden />
+                  {label}
+                </button>
+              ))}
+            </nav>
           </main>
         )}
       </div>

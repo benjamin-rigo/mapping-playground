@@ -39,8 +39,8 @@ function AmountCell({ amount, source, label, onChange }) {
     onDrag(dy) {
       onChange(Math.round(clamp(start.current + dy / 120) * 100) / 100)
     },
-    onEnd(moved) {
-      if (!moved && amount === 0) onChange(0.5)
+    onEnd(moved, cancelled) {
+      if (!moved && !cancelled && amount === 0) onChange(0.5)
     },
   })
 
@@ -62,7 +62,7 @@ function AmountCell({ amount, source, label, onChange }) {
         } else if (e.key === 'Delete' || e.key === 'Backspace') onChange(0)
       }}
       className={cn(
-        'relative flex h-7 cursor-ns-resize touch-none items-center justify-center overflow-hidden rounded font-mono text-[11px] tabular-nums outline-none select-none focus-visible:ring-2 focus-visible:ring-ring',
+        'relative flex h-7 cursor-ns-resize touch-pan-y items-center justify-center overflow-hidden rounded font-mono text-[11px] tabular-nums outline-none select-none focus-visible:ring-2 focus-visible:ring-ring',
         amount === 0 ? 'text-muted-foreground/50 hover:bg-muted' : amount > 0 ? 'text-white' : 'text-sky-100',
       )}
       style={
@@ -97,11 +97,16 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className, 
 
   return (
     <section ref={box} className={cn('@container overflow-auto', className)} aria-label="Modulation matrix">
+      {/* narrow: the corner controls sit above the table instead of squeezing the first column */}
+      <div className="flex items-center gap-3 pt-2 @[36rem]:hidden">
+        <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Matrix</span>
+        {corner}
+      </div>
       <table className="w-full table-fixed border-separate border-spacing-x-1 border-spacing-y-0.5 text-xs">
         <thead className="sticky top-0 z-10 bg-background">
           <tr>
-            <th className="w-[30%] py-2 pl-1 text-left font-normal @[36rem]:w-48">
-              <div className="flex items-center gap-3">
+            <th className="w-[22%] py-2 pl-1 text-left font-normal @[36rem]:w-48">
+              <div className="hidden items-center gap-3 @[36rem]:flex">
                 <span className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Matrix</span>
                 {corner}
               </div>
@@ -122,7 +127,7 @@ export function ModMatrix({ settings, selected, onSelect, onPatches, className, 
           {rows.length === 0 && (
             <tr>
               <td colSpan={SOURCES.length + 2} className="py-4 pl-1 text-muted-foreground">
-                Touch any knob, then drag a cell up or down to let that data move it.
+                Touch any knob, then drag a cell (up or down; sideways on touch screens) to let that data move it.
               </td>
             </tr>
           )}
