@@ -132,17 +132,23 @@ float bayer2(vec2 a) {
   return fract(dot(a, vec2(0.5, a.y * 0.75)));
 }
 float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
-uniform vec2 uRand;
+uniform float uTick;
+uniform float uPx; // device pixels per CSS pixel
 // A fresh random offset every frame, so static and grain never show a repeating pattern.
-float rnd(vec2 p) {
-  return fract(sin(dot(p + uRand, vec2(12.9898, 78.233))) * 43758.5453);
+// Sine-free hash (Dave Hoskins' hash13): sin() on large arguments loses precision on
+// GPUs and shows bands. The frame counter is the third dimension, so every pixel gets
+// an independent value every frame.
+float rnd(vec2 p, float salt) {
+  vec3 p3 = fract(vec3(p, uTick + salt) * 0.1031);
+  p3 += dot(p3, p3.zyx + 31.32);
+  return fract((p3.x + p3.y) * p3.z);
 }
 void main() {
   vec3 col = texture2D(uImage, gl_FragCoord.xy / uRes).rgb;
 
   // Halftone: a 45-degree dot screen; darker areas get bigger dots.
   if (uHalftone > 0.01) {
-    float cell = 7.0;
+    float cell = 7.0 * uPx;
     vec2 p = mat2(0.7071, 0.7071, -0.7071, 0.7071) * gl_FragCoord.xy / cell;
     float dist = length(fract(p) - 0.5);
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
@@ -155,13 +161,15 @@ void main() {
   // Dither: ordered 4x4 Bayer dithering down to fewer and fewer levels per channel.
   if (uDither > 0.01) {
     float levels = max(1.0, floor(mix(8.0, 1.0, pow(uDither, 0.6))));
-    vec3 d = floor(col * levels + bayer4(gl_FragCoord.xy)) / levels;
+    vec3 d = floor(col * levels + bayer4(gl_FragCoord.xy / uPx)) / levels;
     col = mix(col, d, min(1.0, uDither * 3.0));
   }
 
   col *= 1.0 - uScan * 0.5 * step(0.5, fract(gl_FragCoord.y * 0.5));
-  col = mix(col, vec3(rnd(gl_FragCoord.xy)), uStatic * 0.75);
-  col += (rnd(gl_FragCoord.xy * 1.37 + 17.0) - 0.5) * uGrain * 0.3;
+  col = mix(col, vec3(rnd(gl_FragCoord.xy, 0.0)), uStatic * 0.75);
+  // per-channel grain, so it reads as film grain rather than a grey overlay pattern
+  vec3 g = vec3(rnd(gl_FragCoord.xy, 101.0), rnd(gl_FragCoord.xy, 211.0), rnd(gl_FragCoord.xy, 307.0));
+  col += (mix(vec3(g.r), g, 0.35) - 0.5) * uGrain * 0.3;
   gl_FragColor = vec4(col, 1.0);
 }`
 
@@ -238,6 +246,7 @@ export function createField(canvas) {
   }
 
   let time = 0
+  let frameNo = 0
   const flow = [0, 0]
   // Render resolution adapts to frame time; the look is soft, so it can go low.
   let scale = 0.6
@@ -251,9 +260,19 @@ export function createField(canvas) {
       const nw = Math.max(1, Math.round(canvas.clientWidth * scale))
       const nh = Math.max(1, Math.round(canvas.clientHeight * scale))
       if (nw !== w || nh !== h) {
-        w = canvas.width = nw
-        h = canvas.height = nh
+        w = nw
+        h = nh
         makeTargets()
+      }
+      // The canvas itself is full resolution, so the output pass (grain, static, dither,
+      // halftone) draws fine per-pixel detail over the softer, low-res image.
+      // follows the adaptive scale, so slow devices drop output resolution too
+      const px = Math.min(window.devicePixelRatio || 1, 1.5, scale * 1.6)
+      const cw = Math.max(1, Math.round(canvas.clientWidth * px))
+      const ch = Math.max(1, Math.round(canvas.clientHeight * px))
+      if (canvas.width !== cw || canvas.height !== ch) {
+        canvas.width = cw
+        canvas.height = ch
       }
 
       time += dt
@@ -326,18 +345,22 @@ export function createField(canvas) {
 
       gl.useProgram(output.prog)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      gl.viewport(0, 0, cw, ch)
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, dWrite.tex)
       const ou = output.u
       gl.uniform1i(ou.uImage, 0)
-      gl.uniform2f(ou.uRes, w, h)
+      gl.uniform2f(ou.uRes, cw, ch)
+      gl.uniform1f(ou.uPx, px)
       gl.uniform1f(ou.uTime, time)
       gl.uniform1f(ou.uStatic, v['distort.static'])
       gl.uniform1f(ou.uScan, v['distort.scanlines'])
       gl.uniform1f(ou.uGrain, v['distort.grain'])
       gl.uniform1f(ou.uDither, v['distort.dither'])
       gl.uniform1f(ou.uHalftone, v['distort.halftone'])
-      gl.uniform2f(ou.uRand, Math.random() * 1000, Math.random() * 1000)
+      // wraps well before float precision runs out; 997 is prime so the cycle is long
+      frameNo = (frameNo + 1) % 997
+      gl.uniform1f(ou.uTick, frameNo + Math.random())
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       cur = 1 - cur
     },

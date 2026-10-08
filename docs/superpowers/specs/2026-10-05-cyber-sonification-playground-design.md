@@ -371,3 +371,8 @@ All four are mappable and appended to LINK_KEYS. Measured at 61 fps with each on
 - **Scrollbars** are hidden everywhere (`scrollbar-width: none` plus `::-webkit-scrollbar`); wheel, touch and keyboard scrolling still work.
 - **Ping-pong delay:** FX → Delay → Ping-pong crossfades the sends of a mono FeedbackDelay and a PingPongDelay, which run in parallel, fully wet, with shared Time and Feedback and the same tempo sync. Amount scales both sends, and the dry signal dips by up to 35%. Measured L/R difference with a centred synth and no reverb: 1% at 0, 57% at 1.
 - **Unique labels:** `fullLabel()` puts the section in front of generic or repeated labels ("Delay amount", "Reverb amount", "Feedback amount"), in knob names and matrix rows.
+
+**Revision 14b (noise quality):**
+- Static and grain use a sine-free hash (Dave Hoskins' hash13) with a frame counter as the third coordinate. The old `fract(sin(dot(...)) * 43758)` lost precision on the GPU and drew diagonal streaks. Grain is now per channel, slightly coloured.
+- The canvas renders at full resolution (up to 1.5× DPR, following the adaptive scale), while the noise and distortion passes stay low-res. So the output pass (grain, static, dither, halftone) draws per-pixel detail instead of upscaled blocks. Dither and halftone are scaled to CSS pixels.
+- Measured on full-strength static: the largest spatial autocorrelation fell from 0.38 to about 0.04–0.13, which is noise, with no repeating lag. An interleaved A/B run showed no fps difference.
