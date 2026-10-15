@@ -378,3 +378,8 @@ All four are mappable and appended to LINK_KEYS. Measured at 61 fps with each on
 - Measured on full-strength static: the largest spatial autocorrelation fell from 0.38 to about 0.04–0.13, which is noise, with no repeating lag. An interleaved A/B run showed no fps difference.
 
 **Revision 14c:** Response, Quantize and Tempo moved from the matrix toolbar into the header, as compact knobs (label and value beside the knob). They stay selectable and patchable. On desktop they sit after the title and About; on mobile they get their own header row.
+
+**Revision 14d:**
+- A built-in **Blank** preset (every knob at its default, no patches) comes first in the list.
+- A **Reset** button in the header loads it.
+- The app still opens on Pastel drift (`DEFAULTS`), so the first Start sounds like something.

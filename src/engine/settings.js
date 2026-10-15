@@ -30,6 +30,8 @@ const preset = (name, knobs, patches, extra = {}) => {
 const algo = (id) => (['analog', 'fold', 'fm', 'formant', 'additive', 'wavetable', 'chords', 'modal', 'drum', 'noise', 'dust'].indexOf(id) + 0.5) / 11
 
 export const PRESETS = [
+  // Every knob at its default and nothing patched: a clean starting point.
+  preset('Blank', {}, []),
   preset(
     'Pastel drift',
     { 'synth.algo': algo('modal'), 'synth.harmonics': 0.25, 'synth.timbre': 0.55, 'synth.morph': 0.6, 'synth.note': 0.3, 'synth.level': 0.55 },
@@ -173,7 +175,9 @@ export const PRESETS = [
   },
 ]
 
-export const DEFAULTS = PRESETS[0].settings
+export const BLANK = PRESETS[0].settings
+// The app opens on Pastel drift so the first Start already sounds like something.
+export const DEFAULTS = PRESETS.find((p) => p.name === 'Pastel drift').settings
 
 const isNum = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi
 

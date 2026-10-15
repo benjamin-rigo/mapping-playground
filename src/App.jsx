@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { AudioLines, Check, Grid3x3, Image, Link, Maximize, Minimize, Play, Square, Volume2 } from 'lucide-react'
+import { AudioLines, Check, Grid3x3, Image, Link, Maximize, Minimize, Play, RotateCcw, Square, Volume2 } from 'lucide-react'
 import { AboutDialog } from '@/components/AboutDialog'
 import { SavePresetDialog } from '@/components/SavePresetDialog'
 import { deletePreset, presetSettings, readPresets, savePreset } from '@/lib/userPresets'
@@ -281,6 +281,16 @@ export default function App() {
               )}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadPreset('b:Blank')}
+            aria-label="Reset to defaults"
+            title="Reset every knob and remove all connections"
+            className="order-6 md:order-none"
+          >
+            <RotateCcw /> <span className="hidden lg:inline">Reset</span>
+          </Button>
           <SavePresetDialog
             presets={userPresets}
             current={preset.startsWith('u:') ? preset.slice(2) : ''}
